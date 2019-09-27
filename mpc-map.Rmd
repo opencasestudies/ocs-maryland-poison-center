@@ -1,0 +1,390 @@
+---
+title: "Maryland Poison Center Graphics"
+author: "Leah Jager"
+date: "6/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+My goal is to make a map of Maryland by county that is colored by some count or rate from the MPC data set I have created.  I would like to make this map for each year, 2006-2018, and then animate it to show changes over time.
+
+```{r}
+library(tidyverse)
+library(ggmap)
+library(maps)
+library(gganimate)
+library(gifski)
+library(transformr)  # to use polygons in animation
+```
+
+First, read in the MPC data:
+```{r}
+mpcData <- read_csv("MPCdataFINAL.csv")
+names(mpcData)
+dim(mpcData)
+glimpse(mpcData)
+```
+
+Now just playing with making maps of Maryland:
+```{r}
+#making a plot of counties in maryland using the plotting within map package
+map('county', 'maryland', fill = TRUE, col = palette())
+
+#making a plot of counties in maryland using ggplot
+md <- map_data('county', 'maryland')
+dim(md)
+head(md)
+tail(md)
+
+# fill is black and county lines are in white
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, group = group)) + 
+  coord_fixed(1.3) + 
+  theme_bw()
+
+# no fill, red outline
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, group = group), fill="NA", color="red") + 
+  coord_fixed(1.3) + 
+  theme_bw()
+
+# orange fill, black outline, go orioles?
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, group = group), fill="orange", color="black") + 
+  coord_fixed(1.3) + 
+  theme_bw()
+
+# give each county a different color
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, fill=subregion, group = group), color="white") + 
+  coord_fixed(1.3) + 
+  theme_bw()
+
+# give each county a different color and remove color legend
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, fill=subregion, group = group), color="white") + 
+  coord_fixed(1.3) + 
+  theme_bw() + 
+  guides(fill=FALSE) 
+
+# get rid of gridlines
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, fill=subregion, group = group), color="white") + 
+  coord_fixed(1.3) + 
+  theme_nothing() + 
+  guides(fill=FALSE) 
+
+# add state outline in black
+state.md <- map_data('state', 'maryland')
+ggplot() + 
+  geom_polygon(data = md, aes(x=long, y = lat, fill=subregion, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_nothing() + 
+  guides(fill=FALSE) 
+```
+
+Now going to try to color by the number of human exposures:
+```{r}
+mpc2018 <- mpcData %>%
+  filter(Year==2018) %>%
+  mutate(subregion=tolower(County))
+
+mpc2018$subregion
+unique(md$subregion)
+
+# need to remove the , md and the apostrophes
+mpc2018$subregion = str_replace_all(mpc2018$subregion,", md", "")
+mpc2018$subregion = str_replace_all(mpc2018$subregion," county", "")
+mpc2018$subregion = str_replace_all(mpc2018$subregion,"’", "")
+mpc2018$subregion = str_replace_all(mpc2018$subregion,"[.]", "")
+
+mpc2018$subregion
+unique(md$subregion)
+
+plotData <- inner_join(md, mpc2018, by="subregion")
+
+dim(plotData)
+dim(table(plotData$subregion))
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=TotalHumanExposures, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+```
+
+These plots are pretty meaningless without turning them into a rate using the population, but first lets just make a fdw more:
+```{r}
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=MedOutcome_Death, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=Intentional_SuspectedSuicide, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=Age_Under12mo, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+```
+
+First we can consider a scale change:
+```{r}
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=Age_Under12mo, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw() + scale_fill_gradient(trans="log10")
+```
+
+Now I need to find some population data by county:
+```{r}
+popData <- read_csv("./PEP_2018_PEPANNRES/PEP_2018_PEPANNRES.csv")
+glimpse(popData)
+
+pop2018 <- popData %>%
+  select(respop72018, `GEO.display-label`) %>%
+  mutate(subregion=tolower(`GEO.display-label`))
+
+unique(plotData$subregion)
+pop2018$subregion
+
+# need to remove the , md and the apostrophes
+pop2018$subregion = str_replace_all(pop2018$subregion,", maryland", "")
+pop2018$subregion = str_replace_all(pop2018$subregion," county", "")
+pop2018$subregion = str_replace_all(pop2018$subregion,"'", "")
+pop2018$subregion = str_replace_all(pop2018$subregion,"[.]", "")
+
+unique(plotData$subregion)
+pop2018$subregion
+
+plotData <- inner_join(plotData, pop2018, by="subregion")
+plotData <- plotData %>%
+  mutate(THEperCap=TotalHumanExposures/respop72018)
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+```
+
+Now to rescale to per 1000 persons
+```{r}
+plotData <- plotData %>%
+  mutate(THEperCapThou=TotalHumanExposures/respop72018*1000)
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=THEperCapThou, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+```
+
+There doesn't seem to be anything that interesting when looking at total human exposures in 2018.  Can I look at what's happening over time?  I have population data from 2010-2018, so I am going to work with this!
+
+```{r}
+mpcPlotData <- mpcData %>%
+  filter(Year >= 2010) %>%
+  mutate(subregion=tolower(County))
+
+mpcPlotData$subregion
+unique(md$subregion)
+
+# need to remove the , md and the apostrophes
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,", md", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion," county", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"’", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"[.]", "")
+
+mpcPlotData$subregion
+unique(md$subregion)
+
+plotData <- inner_join(md, mpcPlotData, by="subregion")
+
+dim(plotData)
+dim(table(plotData$subregion))
+
+popData <- read_csv("./PEP_2018_PEPANNRES/PEP_2018_PEPANNRES.csv")
+glimpse(popData)
+
+popLongData <- popData %>%
+  select(`2010`=respop72010, `2011`=respop72011, `2012`=respop72012, `2013`=respop72013, `2014`=respop72014, `2015`=respop72015, `2016`=respop72016, `2017`=respop72017, `2018`=respop72018, subregion=`GEO.display-label`) %>%
+  mutate(subregion=tolower(subregion)) %>%
+  gather(Year, Population, `2010`:`2018`) %>%
+  mutate(Year=as.numeric(Year))
+
+unique(popLongData$subregion)
+unique(plotData$subregion)
+
+# need to remove the , md and the apostrophes
+popLongData$subregion = str_replace_all(popLongData$subregion,", maryland", "")
+popLongData$subregion = str_replace_all(popLongData$subregion," county", "")
+popLongData$subregion = str_replace_all(popLongData$subregion,"'", "")
+popLongData$subregion = str_replace_all(popLongData$subregion,"[.]", "")
+
+unique(popLongData$subregion)
+unique(plotData$subregion)
+
+unique(popLongData$Year)
+unique(plotData$Year)
+
+plotData <- inner_join(plotData, popLongData, by=c("subregion", "Year"))
+
+plotData <- plotData %>%
+  mutate(THEperCapThou=TotalHumanExposures/Population*10000)
+
+```
+
+First I will make the plots faceted:
+```{r}
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=THEperCapThou, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw() + facet_wrap(vars(Year))
+```
+
+Going to remove the PG and M counties, since they don't have accurate counts because some (most?) of their calls are rounted to Poison Center in DC.  Will this be straightforward to do?
+
+```{r}
+plotData <- plotData %>% 
+  filter(subregion!="montgomery" & subregion!="prince georges")
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=THEperCapThou, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw() + facet_wrap(vars(Year))
+```
+
+Does there seem to be an overall trend over time?
+```{r}
+plotData %>%
+  group_by(Year) %>%
+  summarize(number=sum(TotalHumanExposures), pop=sum(Population), rate=number/pop*1000)
+```
+
+What's the range by state?
+```{r}
+plotData %>%
+  group_by(Year) %>%
+  summarize(min=min(THEperCapThou), max=max(THEperCapThou))
+```
+
+Now to animate this!  (Might not be that interesting with only 9 panels, but I want to learn how to do it!)
+
+```{r}
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=THEperCapThou, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  labs(title = "Total human exposures per 10,000 individuals in {closest_state}") +
+  coord_fixed(1.3) + 
+  theme_bw() + 
+  transition_states(Year, 3, 1) +
+  enter_fade() +
+  exit_fade()
+  
+```
+
+Now I'm just going to work on making everything pretty.  First I want to show the exposure rate changing over time for the entire state.  Then I will do it county by county.
+
+```{r}
+### MPC data
+mpcData <- read_csv("MPCdataFINAL.csv")
+### md county line map definition data
+md <- map_data('county', 'maryland')
+### md state line map definition data
+state.md <- map_data('state', 'maryland')
+### county population data
+popData <- read_csv("./PEP_2018_PEPANNRES/PEP_2018_PEPANNRES.csv")
+
+### filter to just 2010-2018; get subregions to match
+mpcPlotData <- mpcData %>%
+  filter(Year >= 2010) %>%
+  mutate(subregion=tolower(County))
+
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,", md", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion," county", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"’", "")
+mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"[.]", "")
+
+# join mpc to map data
+plotData <- inner_join(md, mpcPlotData, by="subregion")
+
+# organize population data; get subregions to match
+popLongData <- popData %>%
+  select(`2010`=respop72010, `2011`=respop72011, `2012`=respop72012, `2013`=respop72013, `2014`=respop72014, `2015`=respop72015, `2016`=respop72016, `2017`=respop72017, `2018`=respop72018, subregion=`GEO.display-label`) %>%
+  mutate(subregion=tolower(subregion)) %>%
+  gather(Year, Population, `2010`:`2018`) %>%
+  mutate(Year=as.numeric(Year))
+
+popLongData$subregion = str_replace_all(popLongData$subregion,", maryland", "")
+popLongData$subregion = str_replace_all(popLongData$subregion," county", "")
+popLongData$subregion = str_replace_all(popLongData$subregion,"'", "")
+popLongData$subregion = str_replace_all(popLongData$subregion,"[.]", "")
+
+# join population data to mpc and map data
+plotData <- inner_join(plotData, popLongData, by=c("subregion", "Year"))
+
+# create THE per 10,000 rate variable
+plotData <- plotData %>%
+  mutate(theRate=TotalHumanExposures/Population*10000)
+
+# give PG and Mont counties a NA for "theRate" variable, so they will show as grey
+plotData <- plotData %>%
+  mutate(theRate=ifelse(subregion=="prince georges" | subregion=="montgomery", NA,TotalHumanExposures/Population*10000))
+
+# to get text of year to show in middle of plot
+plotData <- plotData %>%
+  mutate(xloc=-78.5, yloc=38.75)
+
+ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=theRate, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  scale_fill_gradient(low = "white", high = "purple", na.value="grey80") + 
+  theme_void() +
+  labs(title="Total human exposures per 10,000 individuals", fill="Rate per 10k", caption="Data source: (1) Maryland Poison Center, (2) U.S. Census Bureau, Population Division") + theme(legend.position=c(.92,.7), legend.text.align=0, plot.title=element_text(hjust=.15, face="bold")) + 
+  geom_text(data=plotData, aes(y=yloc, x=xloc, label=as.character(Year)), check_overlap = TRUE, size=10, fontface="bold") +
+  coord_fixed(1.3) + 
+  transition_states(Year, 3, 20)
+```
+
+
+Now to make this plot code "nicer" and easier to read:
+
+```{r}
+# initial map information
+baseMap <- ggplot() + 
+  geom_polygon(data = plotData, aes(x=long, y = lat, fill=theRate, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  scale_fill_gradient(low = "white", high = "purple", na.value="grey80") +
+  labs(title="Total human exposures per 10,000 individuals", fill="Rate per 10k", caption="Data sources: (1) Maryland Poison Center (2) U.S. Census Bureau, Population Division \n Prince George's and Montgomery Counties (in gray) excluded from this analysis since complete \n   data from these counties requires consideration of calls to National Capitol Poison Center.") 
+
+# make minimal theme, change position of legend and title
+upgradedMap <- baseMap +
+  theme_void() +
+  theme(legend.position=c(.92,.7), legend.text.align=0, plot.title=element_text(hjust=.1, face="bold"), plot.caption=element_text(hjust=0)) 
+
+# animate and add year label to animation
+animatedMap <- upgradedMap +
+  geom_text(data=plotData, aes(y=yloc, x=xloc, label=as.character(Year)), check_overlap = TRUE, size=10, fontface="bold") +
+  coord_fixed(1.3) + 
+  transition_states(Year, 3, 20)
+
+# save as gif
+mapGIF <- animate(animatedMap) 
+```
