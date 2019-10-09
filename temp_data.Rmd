@@ -1,0 +1,129 @@
+---
+title: "mpc_data_temp"
+author: "kexin wang"
+date: "10/9/2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(tidyverse)
+library(pdftools)
+```
+## READ & EXTYRACT 
+```{r}
+read <- function(pdf.file){
+    require(dplyr)
+    require(pdftools)
+ 
+  # read in the pdf document; select the first page 
+  pdfData <- pdf_data(pdf.file)
+  p1Data <- pdfData[[1]]
+  return(p1Data)
+
+}
+
+ex <- function(p1Data){
+   # get the year and country from the header
+  orderedData <- p1Data %>% 
+    arrange(y,x)
+  year <- orderedData$text[1]
+  county <- paste(orderedData$text[4:5],collapse=" ")
+  county = gsub(",","",county)
+  
+  return(list(county, year))
+}
+
+#temp <- read(d_AG)
+#ex(temp)[[1]]
+```
+## SLICE
+```{r}
+mod <- function(p1Data){
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  
+  if (county=="Prince Georges" | county=="Montgomery County") {
+  y.cut <- p1Data %>% group_by(y) %>% arrange(y) %>% summarize(n=n()) %>%
+    slice(6) %>% select(y) %>% as.numeric()
+  
+  p1Data <- p1Data %>% filter(y > y.cut + 1)
+  } 
+  else {
+    y.cut <- p1Data %>% group_by(y) %>% arrange(y) %>% summarize(n=n()) %>%
+      slice(3) %>% select(y) %>% as.numeric()
+    p1Data <- p1Data %>% filter(y > y.cut + 1)
+  }
+
+# create the column variable (Left/Right)
+  p1Data <- p1Data %>%
+  mutate(column=ifelse(x < 260, "Left", "Right"))
+  
+  return(p1Data)
+}
+```
+```{r}
+temp <- mod(d_AG)
+```
+
+## GROUP
+
+```{r}
+gp <- function(p1Data){
+  # group the data by column and height on the page
+# keep the last entry of that column/height as the value
+# assign the remaining entries for that column/height the name
+  data <- p1Data %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x), 
+                         "value", "name")) %>%
+    summarize(variable = paste(text[type=="name"], 
+                               collapse=" "), 
+              count=text[type=="value"]) %>% 
+    filter(count!= c("Calls","exposure","Site" ,"Outcome"))
+  
+  return(data)
+  
+}
+
+comb <- function(data, year, county){
+  # create the data frame for this county/date
+  myRow <- as.data.frame(t(as.numeric(data$count)))
+  names(myRow) <- data$variable
+  myRow$Year <- year
+  myRow$County <- county
+
+return(myRow)
+  
+}
+```
+
+```{r, warning=FALSE}
+fna_1 <- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  
+  return(d)
+}
+```
+
+```{r}
+ex(read("Allegany County Statistical Report 2018.pdf"))
+```
+
+
+```{r}
+fna_1("Prince Georges County Statistical Report 2018.pdf")
+fna_1("Allegany County Statistical Report 2018.pdf")
+fna_1("Talbot County Statistical Report 2018.pdf")
+```
