@@ -14,7 +14,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(pdftools)
 ```
+
 ## READ & EXTYRACT 
+
 ```{r}
 read <- function(pdf.file){
     require(dplyr)
@@ -22,7 +24,7 @@ read <- function(pdf.file){
  
   # read in the pdf document; select the first page 
   pdfData <- pdf_data(pdf.file)
-  p1Data <- pdfData[[1]]
+  p1Data <- pdfData[[1]]%>%group_by(y) 
   return(p1Data)
 
 }
@@ -30,10 +32,13 @@ read <- function(pdf.file){
 ex <- function(p1Data){
    # get the year and country from the header
   orderedData <- p1Data %>% 
-    arrange(y,x)
+  arrange(x, .by_group=TRUE)
+  
   year <- orderedData$text[1]
-  county <- paste(orderedData$text[4:5],collapse=" ")
-  county = gsub(",","",county)
+  
+  county <- orderedData %>% 
+  summarize(line = paste(text, collapse=" ")) %>%
+  slice(2) %>% select(line) %>% as.character()
   
   return(list(county, year))
 }
@@ -47,22 +52,20 @@ mod <- function(p1Data){
   county <- ex(p1Data)[[1]]
   year <- ex(p1Data)[[2]]
   
-  if (county=="Prince Georges" | county=="Montgomery County") {
-  y.cut <- p1Data %>% group_by(y) %>% arrange(y) %>% summarize(n=n()) %>%
-    slice(6) %>% select(y) %>% as.numeric()
+  cut <- p1Data %>% arrange(y) %>% summarize(n=n()) 
   
-  p1Data <- p1Data %>% filter(y > y.cut + 1)
+  if (county=="Prince Georges County, MD" | county=="Montgomery County, MD") {
+  y.cut <- cut %>%
+    slice(6) %>% select(y) %>% as.numeric()
   } 
   else {
-    y.cut <- p1Data %>% group_by(y) %>% arrange(y) %>% summarize(n=n()) %>%
+    y.cut <- cut %>%
       slice(3) %>% select(y) %>% as.numeric()
-    p1Data <- p1Data %>% filter(y > y.cut + 1)
   }
-
-# create the column variable (Left/Right)
-  p1Data <- p1Data %>%
-  mutate(column=ifelse(x < 260, "Left", "Right"))
   
+  p1Data <- p1Data %>% filter(y > y.cut + 1)%>%
+  mutate(column=ifelse(x < 260, "Left", "Right"))
+  # create the column variable (Left/Right)
   return(p1Data)
 }
 ```
@@ -85,7 +88,7 @@ gp <- function(p1Data){
     summarize(variable = paste(text[type=="name"], 
                                collapse=" "), 
               count=text[type=="value"]) %>% 
-    filter(count!= c("Calls","exposure","Site" ,"Outcome"))
+    filter(count != "Calls", count!="exposure", count!="Site", count!="Outcome")
   
   return(data)
   
@@ -118,7 +121,19 @@ fna_1 <- function(file){
 ```
 
 ```{r}
-ex(read("Allegany County Statistical Report 2018.pdf"))
+t1 <- read("Prince Georges County Statistical Report 2018.pdf") 
+ex(t1)
+
+t1 <- mod(t1)
+t1 <- t1 %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x), 
+                         "value", "name")) %>%
+    summarize(variable = paste(text[type=="name"], 
+                               collapse=" "), 
+              count=text[type=="value"])
+t1 %>%  filter(count != c("Calls","exposure","Site" ,"Outcome"))
 ```
 
 
@@ -126,4 +141,25 @@ ex(read("Allegany County Statistical Report 2018.pdf"))
 fna_1("Prince Georges County Statistical Report 2018.pdf")
 fna_1("Allegany County Statistical Report 2018.pdf")
 fna_1("Talbot County Statistical Report 2018.pdf")
+```
+
+
+```{r}
+files = list.files(path='./data',pattern="*.pdf")
+files
+```
+
+```{r}
+
+d1 <- fna_1(paste0("./data/",files[1]))
+Data <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna_1(paste0("./data/",files[i]))
+  Data <- bind_rows(Data,di)
+  print(i)
+}
+
+
 ```
