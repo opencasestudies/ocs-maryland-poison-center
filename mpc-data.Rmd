@@ -271,7 +271,7 @@ return(myRow)
 Try out this function on the original dataset and two more files:
 ```{r}
 pdfMPC.page1("Allegany County Statistical Report 2018.pdf")
-pdfMPC.page1("Prince Georges County Statistical Report 2018.pdf")
+t(pdfMPC.page1("Prince Georges County Statistical Report 2018.pdf"))
 pdfMPC.page1("Talbot County Statistical Report 2018.pdf")
 ```
 
@@ -474,8 +474,8 @@ return(myRow)
 Try out this function on these three files:
 ```{r}
 pdfMPC.page1("Allegany County Statistical Report 2018.pdf")
-temp <- pdfMPC.page1("Prince Georges County Statistical Report 2018.pdf")
-t(temp)
+pdfMPC.page1("Prince Georges County Statistical Report 2018.pdf")
+#t(temp)
 pdfMPC.page1("Talbot County Statistical Report 2018.pdf")
 ```
 

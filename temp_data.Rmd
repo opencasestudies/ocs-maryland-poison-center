@@ -21,56 +21,55 @@ library(pdftools)
 read <- function(pdf.file){
     require(dplyr)
     require(pdftools)
- 
   # read in the pdf document; select the first page 
   pdfData <- pdf_data(pdf.file)
-  p1Data <- pdfData[[1]]%>%group_by(y) 
+  p1Data <- pdfData[[1]] 
   return(p1Data)
 
 }
 
 ex <- function(p1Data){
    # get the year and country from the header
-  orderedData <- p1Data %>% 
-  arrange(x, .by_group=TRUE)
+  year <- p1Data %>% arrange(y,x) %>%
+    slice(1) %>% select(text) %>% as.numeric()
   
-  year <- orderedData$text[1]
-  
-  county <- orderedData %>% 
+  county <- p1Data %>%  group_by(y) %>%
+  arrange(x, .by_group=TRUE) %>% 
   summarize(line = paste(text, collapse=" ")) %>%
   slice(2) %>% select(line) %>% as.character()
   
   return(list(county, year))
 }
-
 #temp <- read(d_AG)
 #ex(temp)[[1]]
 ```
+
 ## SLICE
 ```{r}
 mod <- function(p1Data){
+  
   county <- ex(p1Data)[[1]]
   year <- ex(p1Data)[[2]]
   
-  cut <- p1Data %>% arrange(y) %>% summarize(n=n()) 
+  cut <- p1Data %>%group_by(y)%>% 
+    arrange(y) %>% summarize(n=n()) # arrange() sort a variable in descending order
+                                    # n() count value 
   
   if (county=="Prince Georges County, MD" | county=="Montgomery County, MD") {
   y.cut <- cut %>%
-    slice(6) %>% select(y) %>% as.numeric()
+    slice(6) %>% select(y) %>% as.numeric()   # select row by position
   } 
   else {
     y.cut <- cut %>%
       slice(3) %>% select(y) %>% as.numeric()
   }
   
-  p1Data <- p1Data %>% filter(y > y.cut + 1)%>%
-  mutate(column=ifelse(x < 260, "Left", "Right"))
-  # create the column variable (Left/Right)
+  p1Data <- p1Data %>% 
+    filter(y > y.cut + 1) %>%
+    mutate(column=ifelse(x < 265, "Left", "Right"))
+  # create the column variable (Left/Right) since original pdf has two parts
   return(p1Data)
 }
-```
-```{r}
-temp <- mod(d_AG)
 ```
 
 ## GROUP
@@ -83,6 +82,7 @@ gp <- function(p1Data){
   data <- p1Data %>% 
     group_by(column,y) %>% 
     arrange(x, .by_group=TRUE) %>%
+     # will sort first by grouping variable. Applies to grouped data frames only.
     mutate(type = ifelse(x==max(x), 
                          "value", "name")) %>%
     summarize(variable = paste(text[type=="name"], 
@@ -98,11 +98,10 @@ comb <- function(data, year, county){
   # create the data frame for this county/date
   myRow <- as.data.frame(t(as.numeric(data$count)))
   names(myRow) <- data$variable
+  
   myRow$Year <- year
   myRow$County <- county
-
-return(myRow)
-  
+  return(myRow)
 }
 ```
 
@@ -115,25 +114,33 @@ fna_1 <- function(file){
   d <- mod(p1Data)
   d <- gp(d)
   d <- comb(d, year, county)
-  
   return(d)
 }
 ```
 
 ```{r}
-t1 <- read("Prince Georges County Statistical Report 2018.pdf") 
-ex(t1)
+t <- read("Prince Georges County Statistical Report 2018.pdf")
+#t <- read((paste0("./data/",files[24])))
+ex(t)
 
-t1 <- mod(t1)
-t1 <- t1 %>% 
-    group_by(column,y) %>% 
-    arrange(x, .by_group=TRUE) %>%
-    mutate(type = ifelse(x==max(x), 
-                         "value", "name")) %>%
+t1 <- mod(t)
+
+```
+
+```{r}
+t2 <-  t1 %>% group_by(column,y) %>%
+ arrange(x, .by_group = TRUE) %>%
+  # will sort first by grouping variable. Applies to grouped data frames only.
+    #mutate(type = ifelse(x==max(x), 
+     #                    "value", "name")) %>%
+  mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) %>%
     summarize(variable = paste(text[type=="name"], 
                                collapse=" "), 
-              count=text[type=="value"])
-t1 %>%  filter(count != c("Calls","exposure","Site" ,"Outcome"))
+              count=text[type=="value"])  %>%   # summarize by row?
+    #filter(count != c("Calls","exposure","Site","Outcome"))
+  filter(count != "Calls", count!="exposure", count!="Site", count!="Outcome")
+
 ```
 
 
@@ -146,7 +153,7 @@ fna_1("Talbot County Statistical Report 2018.pdf")
 
 ```{r}
 files = list.files(path='./data',pattern="*.pdf")
-files
+files[24:26]
 ```
 
 ```{r}
@@ -160,6 +167,143 @@ for (i in 2:length(files)) {
   Data <- bind_rows(Data,di)
   print(i)
 }
+```
 
+Notes:
+
+(1) Had to modify to remove commas from counts: 5,321 to 5321 (Baltimore County 2006)
+(2) Had to modify to account for blank counts; for now I am setting those to 0.  Should probably set them to NA? This also required me to modify how labeling the name and the value, since this row only had a name not a value. (Somerset 2006)
+(3) Some files have "Maryland Poison Center" printed at bottom of page 1, need to remove this (Cecil 2007)
+(4) I think because of the apostrophe maybe, it's saying part of the header is actually two different heights, so it's split it into 2 pieces, which means I can't cut after 3rd line, really need to cut after 4th. Make a special case for this one file.(Queen Annes 2011)
+(5) Same issue as for Queen Annes, just included it in the exception  (St Marys 2011)
+
+
+
+Here I want to try directly find keywords "Calls"
+```{r}
+t <- read(paste0("./data/",files[249]))
+t %>%group_by(y)%>% arrange(y) 
+cut <- min(t$y[t$text=="Calls"])
+t1 <- t %>% filter(y > cut )
+```
+
+
+```{r update cut function}
+mod <- function(p1Data){
+  
+  y.cut <- min(p1Data$y[p1Data$text=="Calls"])
+  
+  p1Data <- p1Data %>% filter(y > y.cut + 1)%>%
+   mutate(column=ifelse(x < 265, "Left", "Right"))
+  # create the column variable (Left/Right)
+  return(p1Data)
+}
+```
+
+
+```{r update gp}
+gp <- function(p1Data){
+  # group the data by column and height on the page
+# keep the last entry of that column/height as the value
+# assign the remaining entries for that column/height the name
+  groupdata <- p1Data %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
+  
+    countdata <- groupdata %>% 
+      summarize(variable = paste(text[type=="name"], collapse=" "), 
+              count = ifelse(is_empty(text[type=="value"])==FALSE, 
+                           text[type=="value"],"0")) %>%
+    filter(count != "Calls", count!="exposure", count!="Site",
+           count!="Outcome",count!="Center",variable!="Maryland")
+  
+  return(countdata)
+  
+}
+
+comb <- function(data, year, county){
+  # create the data frame for this county/date
+  myRow <- as.data.frame(t(as.numeric(gsub(",","",data$count))))
+  names(myRow) <- data$variable
+  
+  myRow$Year <- year
+  myRow$County <- county
+  return(myRow)
+}
+```
+
+*Sheena* 
+1.how to find empty value? is_empty()?
+2.Does function max() find the maximum of x within the same group_by(y)?
+3.If we can assign "name" and "value" type to these two columns respectively? 
+```{r}
+t <- read(paste0("./data/",files[249]))
+tl <- mod(t) %>% 
+  filter(column =="Left")
+
+tr <- mod(t) %>% 
+  filter(column =="Right")
+
+
+tl1 <- tl %>% 
+    group_by(y) %>% 
+    arrange(x, .by_group=TRUE)%>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
+tr1 <- tr %>% 
+    group_by(y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
 
 ```
+
+
+```{r}
+fna_2 <- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  return(d)
+}
+```
+
+```{r}
+d1 <- fna_1(paste0("./data/",files[1]))
+Data <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna_2(paste0("./data/",files[i]))
+  Data <- bind_rows(Data,di)
+  print(i)
+}
+```
+```
+
+```{r}
+names(Data)
+myNames <- data.frame(names=names(Data))
+myNames %>% arrange(names)
+```
+
+
+The higher categories are:
+Left column:
+Total human exposures to Reason for exposure, give subcategory "Age:"
+Unintentional to Intentional, give subcategory "RFE-Unintent:"
+Intentional to Other, give subcategory "RFE-Intent:"
+Other to end, give subcategory "RFE-Other:"
+
+Right column: 
+Management Site to Medical Outcome, give subcategory "MS"
+Medical outcome to end, give subcategory "MO"
+
+
+
+
