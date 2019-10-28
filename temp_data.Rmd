@@ -43,6 +43,9 @@ ex <- function(p1Data){
 #temp <- read(d_AG)
 #ex(temp)[[1]]
 ```
+- arrange() sort a variable in descending order
+- n() count value 
+
 
 ## SLICE
 ```{r}
@@ -52,8 +55,7 @@ mod <- function(p1Data){
   year <- ex(p1Data)[[2]]
   
   cut <- p1Data %>%group_by(y)%>% 
-    arrange(y) %>% summarize(n=n()) # arrange() sort a variable in descending order
-                                    # n() count value 
+    arrange(y) %>% summarize(n=n()) 
   
   if (county=="Prince Georges County, MD" | county=="Montgomery County, MD") {
   y.cut <- cut %>%
@@ -70,6 +72,18 @@ mod <- function(p1Data){
   # create the column variable (Left/Right) since original pdf has two parts
   return(p1Data)
 }
+```
+
+
+### try on file
+
+```{r}
+t <- read("Prince Georges County Statistical Report 2018.pdf")
+#t <- read((paste0("./data/",files[24])))
+ex(t)
+
+t1 <- mod(t)
+t1
 ```
 
 ## GROUP
@@ -105,32 +119,19 @@ comb <- function(data, year, county){
 }
 ```
 
-```{r, warning=FALSE}
-fna_1 <- function(file){
-  p1Data <- read(file)
-  county <- ex(p1Data)[[1]]
-  year <- ex(p1Data)[[2]]
-  
-  d <- mod(p1Data)
-  d <- gp(d)
-  d <- comb(d, year, county)
-  return(d)
-}
-```
+### try on file
 
 ```{r}
-t <- read("Prince Georges County Statistical Report 2018.pdf")
-#t <- read((paste0("./data/",files[24])))
-ex(t)
-
-t1 <- mod(t)
-
+t1 %>% group_by(column,y) %>%
+ arrange(x, .by_group = TRUE) %>%
+  mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
 ```
+'.by_group = TRUE' will sort first by grouping variable. Applies to grouped data frames only.
 
 ```{r}
 t2 <-  t1 %>% group_by(column,y) %>%
  arrange(x, .by_group = TRUE) %>%
-  # will sort first by grouping variable. Applies to grouped data frames only.
     #mutate(type = ifelse(x==max(x), 
      #                    "value", "name")) %>%
   mutate(type = ifelse(x==max(x) & x==min(x), "name", 
@@ -141,7 +142,25 @@ t2 <-  t1 %>% group_by(column,y) %>%
     #filter(count != c("Calls","exposure","Site","Outcome"))
   filter(count != "Calls", count!="exposure", count!="Site", count!="Outcome")
 
+
+t2
 ```
+
+```{r, warning=FALSE}
+
+fna_1 <- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  return(d)
+}
+
+```
+
 
 
 ```{r}
@@ -153,11 +172,9 @@ fna_1("Talbot County Statistical Report 2018.pdf")
 
 ```{r}
 files = list.files(path='./data',pattern="*.pdf")
-files[24:26]
 ```
 
 ```{r}
-
 d1 <- fna_1(paste0("./data/",files[1]))
 Data <- d1
 
@@ -169,17 +186,27 @@ for (i in 2:length(files)) {
 }
 ```
 
+```{r}
+files[c(40,64,93)]
+files[287:289]
+```
+```{r}
+t(fna_1(paste0("./data/",files[4])))
+t(fna_1(paste0("./data/",files[64])))
+```
+
 Notes:
 
-(1) Had to modify to remove commas from counts: 5,321 to 5321 (Baltimore County 2006)
-(2) Had to modify to account for blank counts; for now I am setting those to 0.  Should probably set them to NA? This also required me to modify how labeling the name and the value, since this row only had a name not a value. (Somerset 2006)
-(3) Some files have "Maryland Poison Center" printed at bottom of page 1, need to remove this (Cecil 2007)
+(1) Had to modify to remove commas from counts: 5,321 to 5321 (Baltimore County 2006-[40])
+(2) files[60] has wired "medical outcome" arrangement "Calvert County,2017"
+(3) Have "Maryland Poison Center" printed at bottom of page 1, need to remove this (Cecil 2007-[93])
 (4) I think because of the apostrophe maybe, it's saying part of the header is actually two different heights, so it's split it into 2 pieces, which means I can't cut after 3rd line, really need to cut after 4th. Make a special case for this one file.(Queen Annes 2011)
 (5) Same issue as for Queen Annes, just included it in the exception  (St Marys 2011)
-
+(6) Had to modify to account for blank counts; for now I am setting those to 0.  Should probably set them to NA? This also required me to modify how labeling the name and the value, since this row only had a name not a value. (Somerset 2006)
 
 
 Here I want to try directly find keywords "Calls"
+
 ```{r}
 t <- read(paste0("./data/",files[249]))
 t %>%group_by(y)%>% arrange(y) 
@@ -187,6 +214,7 @@ cut <- min(t$y[t$text=="Calls"])
 t1 <- t %>% filter(y > cut )
 ```
 
+find the where "calls" appear at the first time, that's why I use min().
 
 ```{r update cut function}
 mod <- function(p1Data){
@@ -206,20 +234,20 @@ gp <- function(p1Data){
   # group the data by column and height on the page
 # keep the last entry of that column/height as the value
 # assign the remaining entries for that column/height the name
-  groupdata <- p1Data %>% 
+  gd <- p1Data %>% 
     group_by(column,y) %>% 
     arrange(x, .by_group=TRUE) %>%
     mutate(type = ifelse(x==max(x) & x==min(x), "name", 
                          ifelse(x==max(x), "value", "name"))) 
   
-    countdata <- groupdata %>% 
+    cd <- gd %>% 
       summarize(variable = paste(text[type=="name"], collapse=" "), 
               count = ifelse(is_empty(text[type=="value"])==FALSE, 
                            text[type=="value"],"0")) %>%
     filter(count != "Calls", count!="exposure", count!="Site",
            count!="Outcome",count!="Center",variable!="Maryland")
   
-  return(countdata)
+  return(cd)
   
 }
 
@@ -238,28 +266,6 @@ comb <- function(data, year, county){
 1.how to find empty value? is_empty()?
 2.Does function max() find the maximum of x within the same group_by(y)?
 3.If we can assign "name" and "value" type to these two columns respectively? 
-```{r}
-t <- read(paste0("./data/",files[249]))
-tl <- mod(t) %>% 
-  filter(column =="Left")
-
-tr <- mod(t) %>% 
-  filter(column =="Right")
-
-
-tl1 <- tl %>% 
-    group_by(y) %>% 
-    arrange(x, .by_group=TRUE)%>%
-    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
-                         ifelse(x==max(x), "value", "name"))) 
-tr1 <- tr %>% 
-    group_by(y) %>% 
-    arrange(x, .by_group=TRUE) %>%
-    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
-                         ifelse(x==max(x), "value", "name"))) 
-
-```
-
 
 ```{r}
 fna_2 <- function(file){
@@ -275,20 +281,18 @@ fna_2 <- function(file){
 
 ```{r}
 d1 <- fna_1(paste0("./data/",files[1]))
-Data <- d1
+Data2 <- d1
 
 options(warn=2)
 for (i in 2:length(files)) {
   di <- fna_2(paste0("./data/",files[i]))
-  Data <- bind_rows(Data,di)
+  Data2 <- bind_rows(Data2,di)
   print(i)
 }
 ```
-```
-
 ```{r}
-names(Data)
-myNames <- data.frame(names=names(Data))
+names(Data2)
+myNames <- data.frame(names=names(Data2))
 myNames %>% arrange(names)
 ```
 
@@ -305,5 +309,275 @@ Management Site to Medical Outcome, give subcategory "MS"
 Medical outcome to end, give subcategory "MO"
 
 
+To achieve this, I will update the group function
 
+```{r update gp}
+
+gp <- function(p1Data){
+  # group the data by column and height on the page
+# keep the last entry of that column/height as the value
+# assign the remaining entries for that column/height the name
+  gd <- p1Data %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
+  
+    cd <- gd %>% 
+      summarize(variable = paste(text[type=="name"], collapse=" "), 
+                count=ifelse(is_empty(text[type=="value"])==FALSE, 
+                             text[type=="value"],"0"), xmin=min(x))
+      
+ 
+y.age.min <- cd$y[cd$variable=="Total human exposures"]
+y.age.max <- cd$y[cd$variable=="Reason for"]
+y.un.min <- cd$y[cd$variable=="Unintentional"]
+y.un.max <- cd$y[cd$variable=="Intentional"]
+y.int.min <- cd$y[cd$variable=="Intentional"]
+
+x.min <- min(cd$xmin[cd$column=="Left"])
+
+y.int.max <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+y.other.min <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+
+y.ms.min <- cd$y[cd$variable=="Management"]
+y.ms.max <- cd$y[cd$variable=="Medical"]
+y.mo.min <- cd$y[cd$variable=="Medical"]
+
+cd <- cd %>%
+  mutate(variableSub=ifelse(column=="Left" & y > y.age.min & y < y.age.max, "Age:",
+         ifelse(column=="Left" & y > y.un.min & y < y.un.max, "ReasonUn:",
+         ifelse(column=="Left" & y > y.int.min & y < y.int.max, "ReasonInt:",
+         ifelse(column=="Left" & y > y.other.min, "ReasonOther:",
+         ifelse(column=="Right" & y > y.ms.min & y < y.ms.max, "MS:",
+         ifelse(column=="Right" & y > y.mo.min, "MO:", "")))))))     
+      
+    
+cd <- cd %>%
+  filter(count != "Calls", count!="exposure", count!="Site",
+           count!="Outcome",count!="Center",variable!="Maryland") %>%
+  mutate(name=paste0(variableSub, variable))
+  
+  return(cd)
+}
+
+
+comb <- function(data, year, county){
+  # create the data frame for this county/date
+  myRow <- as.data.frame(t(as.numeric(gsub(",","",data$count))))
+  names(myRow) <- data$name
+  
+  myRow$Year <- year
+  myRow$County <- county
+  return(myRow)
+}
+```
+
+```{r}
+fna_3 <- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  return(d)
+}
+```
+
+```{r}
+d1 <- fna_3(paste0("./data/",files[1]))
+Data3 <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna_3(paste0("./data/",files[i]))
+  Data3 <- bind_rows(Data3,di)
+}
+```
+```{r}
+colnames(Data3)
+```
+
+
+1) WHY exist NA-sub-category? For "Allegany County Statistical Report 2016.pdf", the x.min of the left side doesn't equal to the x value for each subcatergory, so I update the x.min as x.min of "Total human exposures", since all subcategory are listed along the same x value. (change) 
+
+```{r update gp}
+gp <- function(p1Data){
+  # group the data by column and height on the page
+# keep the last entry of that column/height as the value
+# assign the remaining entries for that column/height the name
+  gd <- p1Data %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
+  
+    cd <- gd %>% 
+      summarize(variable = paste(text[type=="name"], collapse=" "), 
+                count=ifelse(is_empty(text[type=="value"])==FALSE, 
+                             text[type=="value"],"0"), xmin=min(x))
+      
+ 
+y.age.min <- cd$y[cd$variable=="Total human exposures"]
+y.age.max <- cd$y[cd$variable=="Reason for"]
+y.un.min <- cd$y[cd$variable=="Unintentional"]
+y.un.max <- cd$y[cd$variable=="Intentional"]
+y.int.min <- cd$y[cd$variable=="Intentional"]
+
+x.min <- cd$xmin[cd$variable=="Total human exposures"]
+
+y.int.max <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+y.other.min <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+
+y.ms.min <- cd$y[cd$variable=="Management"]
+y.ms.max <- cd$y[cd$variable=="Medical"]
+y.mo.min <- cd$y[cd$variable=="Medical"]
+
+cd <- cd %>%
+  mutate(variableSub=ifelse(column=="Left" & y > y.age.min & y < y.age.max, "Age:",
+         ifelse(column=="Left" & y > y.un.min & y < y.un.max, "ReasonUn:",
+         ifelse(column=="Left" & y > y.int.min & y < y.int.max, "ReasonInt:",
+         ifelse(column=="Left" & y > y.other.min, "ReasonOther:",
+         ifelse(column=="Right" & y > y.ms.min & y < y.ms.max, "MS:",
+         ifelse(column=="Right" & y > y.mo.min, "MO:", "")))))))     
+      
+    
+cd <- cd %>%
+  filter(count != "Calls", count!="exposure", count!="Site",
+           count!="Outcome",count!="Center",variable!="Maryland") %>%
+  mutate(name=paste0(variableSub, variable))
+  
+  return(cd)
+}
+```
+
+
+```{r}
+fna_4 <- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  return(d)
+}
+```
+
+```{r}
+d1 <- fna_4(paste0("./data/",files[1]))
+Data4 <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna_4(paste0("./data/",files[i]))
+  Data4 <- bind_rows(Data4,di)
+}
+```
+```{r}
+colnames(Data4)
+```
+
+Now we can see there is no problem on subcategory!
+
+Next, I will deal the whole dataframe. First define a function to find colnames with certain pattern
+
+```{r}
+#Data3$`Age:Adult`[is.na(Data3$`Age:<60 years`)]
+str.dt <- function(pattern){
+  temp <- colnames(Data4)[str_detect(colnames(Data4),pattern)]
+  return(temp)
+}
+```
+
+1) for subvar, I would like to sum all values in "Unknown" or "Other" as the new "unknown" col, and then delete orginal unknown value
+
+```{r}
+Data4$`Age:All.Unknown`= rowSums(Data4[str.dt("^Age:Unk")],na.rm = TRUE, dims=1)
+Data4$`ReasonUn:All.Unknown`= rowSums(Data4[str.dt("ReasonUn:(Unk|Oth)")],na.rm = TRUE, dims=1)
+Data4$`ReasonOther:All.Unknown`= rowSums(Data4[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
+Data4$`MS:All.Unknown`= rowSums(Data4[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
+
+```
+
+2) for sub-Age, there are adult, >20-, >60, sum their value in to new 
+
+
+```{r}
+str.dt("Age:")
+tempage <- Data4[c(str.dt("Age:"),"County")]
+```
+
+```{r}
+Data4$`Age:>20 years`= rowSums(Data4[str.dt("Age:(Ad|20-|>60|<60)")],na.rm = TRUE, dims=1)
+```
+
+3)
+```{r}
+str.dt("ReasonUn:")
+tempun <- Data4[c(str.dt("ReasonUn:"),"County","Year")]
+```
+```{r}
+str.dt(".(Poi|poi)")
+Data4$`ReasonUn:Botulism`= rowSums(Data4[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
+str.dt(".(or Sti|or sti)")
+Data4$`ReasonUn:Bite/Sting`= rowSums(Data4[str.dt(".(or Sti|or sti)")],na.rm = TRUE, dims=1)
+```
+Except these four variables, others have less NA, leave for later update
+
+4) if we look at the sub-other, we can find there exist lots of NA's, how about sum them as a new column?
+
+```{r}
+tempoth <- Data4[c('Other',str.dt("ReasonOther:"),"County","Year")]
+summary(tempoth)
+```
+```{r}
+str.dt(".(With|Adv).")
+Data4$`ReasonOther:Negative Reaction/Other`= rowSums(Data4[str.dt(".(With|Adv).")],na.rm = TRUE, dims=1)
+```
+
+put space after "/" in new variable as "/ " to avoid deleting it in later step
+
+```{r}
+str.dt(".(/Tamp|/tamp).")
+Data4$`ReasonOther:Contamination/ Tampering`= rowSums(Data4[str.dt(".(/Tamp|/tamp).")],na.rm = TRUE, dims=1)
+```
+
+5) For sub-MS category:
+
+only one NA for MS:Refused Referral, here I think we can replace that only NA as 0, leave this step to finish later, since we may need to repeat this step for other columns too.
+
+```{r}
+tempms <- Data4[c(str.dt("MS:"),"County","Year")]
+summary(tempms)
+```
+
+6) No missing value for MO sub-category, good!
+
+```{r}
+tempmo <- Data4[c(str.dt("MO:"),"County","Year")]
+summary(tempmo)
+```
+
+7) two wired vars 'Medical','ReasonUn:Outcome', which only has one value for "Calvert County, MD". This is caused by wired format of original pdf, just delete it
+
+```{r}
+summary(Data4[c('Medical','ReasonUn:Outcome')])
+```
+
+8) In all, we make change on 10 variables and now let's drop all old variables and save into a new dataframe
+```{r}
+drops <- c(str.dt("^Age:Unk"),str.dt("ReasonUn:Unk"),
+           str.dt("ReasonOther:(Unk|Oth)"),str.dt("MS:(Unk|Oth)"),
+           str.dt("Age:(Ad|20-|>60|<60)"),str.dt(".(Poi|poi)"),
+           str.dt(".(or Sti|or sti)"), str.dt(".(With|Adv)."),
+           str.dt(".(/Tamp|/tamp)."), "Medical",'ReasonUn:Outcome')
+
+Data5 <- Data4[ , !(names(Data4) %in% drops)]
+names(Data5)
+```
+9) change all NA as 0 or leave there? 
+
+ReasonOther:Malicious has most NA:28
 

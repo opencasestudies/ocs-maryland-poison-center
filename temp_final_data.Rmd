@@ -1,0 +1,176 @@
+---
+title: "temp_final_data"
+author: "kexin wang"
+date: "10/27/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(tidyverse)
+library(pdftools)
+```
+
+
+```{r}
+read <- function(pdf.file){
+    require(dplyr)
+    require(pdftools)
+  # read in the pdf document; select the first page 
+  pdfData <- pdf_data(pdf.file)
+  p1Data <- pdfData[[1]] 
+  return(p1Data)
+
+}
+
+ex <- function(p1Data){
+   # get the year and country from the header
+  year <- p1Data %>% arrange(y,x) %>%
+    slice(1) %>% select(text) %>% as.numeric()
+  
+  county <- p1Data %>%  group_by(y) %>%
+  arrange(x, .by_group=TRUE) %>% 
+  summarize(line = paste(text, collapse=" ")) %>%
+  slice(2) %>% select(line) %>% as.character()
+  
+  return(list(county, year))
+}
+
+```
+
+
+```{r update cut function}
+mod <- function(p1Data){
+  
+  y.cut <- min(p1Data$y[p1Data$text=="Calls"])
+  
+  p1Data <- p1Data %>% filter(y > y.cut + 1)%>%
+   mutate(column=ifelse(x < 265, "Left", "Right"))
+  # create the column variable (Left/Right)
+  return(p1Data)
+}
+```
+
+```{r update gp}
+gp <- function(p1Data){
+  # group the data by column and height on the page
+# keep the last entry of that column/height as the value
+# assign the remaining entries for that column/height the name
+  gd <- p1Data %>% 
+    group_by(column,y) %>% 
+    arrange(x, .by_group=TRUE) %>%
+    mutate(type = ifelse(x==max(x) & x==min(x), "name", 
+                         ifelse(x==max(x), "value", "name"))) 
+  
+    cd <- gd %>% 
+      summarize(variable = paste(text[type=="name"], collapse=" "), 
+                count=ifelse(is_empty(text[type=="value"])==FALSE, 
+                             text[type=="value"],"0"), xmin=min(x))
+      
+ 
+y.age.min <- cd$y[cd$variable=="Total human exposures"]
+y.age.max <- cd$y[cd$variable=="Reason for"]
+y.un.min <- cd$y[cd$variable=="Unintentional"]
+y.un.max <- cd$y[cd$variable=="Intentional"]
+y.int.min <- cd$y[cd$variable=="Intentional"]
+
+x.min <- cd$xmin[cd$variable=="Total human exposures"]
+
+y.int.max <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+y.other.min <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
+
+y.ms.min <- cd$y[cd$variable=="Management"]
+y.ms.max <- cd$y[cd$variable=="Medical"]
+y.mo.min <- cd$y[cd$variable=="Medical"]
+
+cd <- cd %>%
+  mutate(variableSub=ifelse(column=="Left" & y > y.age.min & y < y.age.max, "Age:",
+         ifelse(column=="Left" & y > y.un.min & y < y.un.max, "ReasonUn:",
+         ifelse(column=="Left" & y > y.int.min & y < y.int.max, "ReasonInt:",
+         ifelse(column=="Left" & y > y.other.min, "ReasonOther:",
+         ifelse(column=="Right" & y > y.ms.min & y < y.ms.max, "MS:",
+         ifelse(column=="Right" & y > y.mo.min, "MO:", "")))))))     
+      
+    
+cd <- cd %>%
+  filter(count != "Calls", count!="exposure", count!="Site",
+           count!="Outcome",count!="Center",variable!="Maryland") %>%
+  mutate(name=paste0(variableSub, variable))
+  
+  return(cd)
+}
+```
+
+```{r}
+fna<- function(file){
+  p1Data <- read(file)
+  county <- ex(p1Data)[[1]]
+  year <- ex(p1Data)[[2]]
+  d <- mod(p1Data)
+  d <- gp(d)
+  d <- comb(d, year, county)
+  return(d)
+}
+```
+
+```{r}
+d1 <- fna(paste0("./data/",files[1]))
+df <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna(paste0("./data/",files[i]))
+  df <- bind_rows(df,di)
+}
+```
+```{r}
+colnames(df)
+```
+
+Next, I will deal the whole dataframe. First define a function to find colnames with certain pattern
+```{r}
+str.dt <- function(pattern){
+  temp <- colnames(df)[str_detect(colnames(df),pattern)]
+  return(temp)
+}
+```
+
+
+```{r}
+df$`Age:All.Unknown`= rowSums(df[str.dt("^Age:Unk")],na.rm = TRUE, dims=1)
+df$`ReasonUn:All.Unknown`= rowSums(df[str.dt("ReasonUn:(Unk|Oth)")],na.rm = TRUE, dims=1)
+df$`ReasonOther:All.Unknown`= rowSums(df[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
+df$`MS:All.Unknown`= rowSums(df[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
+
+
+df$`Age:>20 years`= rowSums(df[str.dt("Age:(Ad|20-|>60|<60)")],na.rm = TRUE, dims=1)
+
+
+str.dt(".(Poi|poi)")
+df$`ReasonUn:Botulism`= rowSums(df[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
+str.dt(".(or Sti|or sti)")
+df$`ReasonUn:Bite/Sting`= rowSums(df[str.dt(".(or Sti|or sti)")],na.rm = TRUE, dims=1)
+
+
+
+str.dt(".(With|Adv).")
+df$`ReasonOther:Negative Reaction/Other`= rowSums(df[str.dt(".(With|Adv).")],na.rm = TRUE, dims=1)
+str.dt(".(/Tamp|/tamp).")
+df$`ReasonOther:Contamination/ Tampering`= rowSums(df[str.dt(".(/Tamp|/tamp).")],na.rm = TRUE, dims=1)
+
+
+drops <- c(str.dt("^Age:Unk"),str.dt("ReasonUn:Unk"),
+           str.dt("ReasonOther:(Unk|Oth)"),str.dt("MS:(Unk|Oth)"),
+           str.dt("Age:(Ad|20-|>60|<60)"),str.dt(".(Poi|poi)"),
+           str.dt(".(or Sti|or sti)"), str.dt(".(With|Adv)."),
+           str.dt(".(/Tamp|/tamp)."), "Medical",'ReasonUn:Outcome')
+```
+
+```{r}
+DF <- df[ , !(names(df) %in% drops)] 
+
+sort(names(DF))
+```
