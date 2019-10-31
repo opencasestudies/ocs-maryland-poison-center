@@ -287,7 +287,6 @@ options(warn=2)
 for (i in 2:length(files)) {
   di <- fna_2(paste0("./data/",files[i]))
   Data2 <- bind_rows(Data2,di)
-  print(i)
 }
 ```
 ```{r}
@@ -400,7 +399,7 @@ colnames(Data3)
 ```
 
 
-1) WHY exist NA-sub-category? For "Allegany County Statistical Report 2016.pdf", the x.min of the left side doesn't equal to the x value for each subcatergory, so I update the x.min as x.min of "Total human exposures", since all subcategory are listed along the same x value. (change) 
+WHY exist NA-sub-category? For "Allegany County Statistical Report 2016.pdf", the x.min of the left side doesn't equal to the x value for each subcatergory, so I update the x.min as x.min of "Total human exposures", since all subcategory are listed along the same x value. (change) 
 
 ```{r update gp}
 gp <- function(p1Data){
@@ -479,9 +478,10 @@ for (i in 2:length(files)) {
 colnames(Data4)
 ```
 
-Now we can see there is no problem on subcategory!
+Now we can see there is no problem on these 6 subcategories!
 
 Next, I will deal the whole dataframe. First define a function to find colnames with certain pattern
+https://r4ds.had.co.nz/strings.html#other-types-of-pattern. A common use of `str_detect()` is to select the elements that match a pattern.
 
 ```{r}
 #Data3$`Age:Adult`[is.na(Data3$`Age:<60 years`)]
@@ -499,6 +499,10 @@ Data4$`ReasonUn:All.Unknown`= rowSums(Data4[str.dt("ReasonUn:(Unk|Oth)")],na.rm 
 Data4$`ReasonOther:All.Unknown`= rowSums(Data4[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
 Data4$`MS:All.Unknown`= rowSums(Data4[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
 
+
+c(str.dt("^Age:Unk"),str.dt("ReasonUn:(Unk|Oth)"),str.dt("ReasonOther:(Unk|Oth)"),
+  str.dt("MS:(Unk|Oth)"))
+
 ```
 
 2) for sub-Age, there are adult, >20-, >60, sum their value in to new 
@@ -512,12 +516,16 @@ tempage <- Data4[c(str.dt("Age:"),"County")]
 ```{r}
 Data4$`Age:>20 years`= rowSums(Data4[str.dt("Age:(Ad|20-|>60|<60)")],na.rm = TRUE, dims=1)
 ```
+find out the '<60' pdf, and show it in the open-case
 
 3)
 ```{r}
 str.dt("ReasonUn:")
 tempun <- Data4[c(str.dt("ReasonUn:"),"County","Year")]
 ```
+
+-- why we do this, leave the explanation
+
 ```{r}
 str.dt(".(Poi|poi)")
 Data4$`ReasonUn:Botulism`= rowSums(Data4[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
@@ -532,6 +540,9 @@ Except these four variables, others have less NA, leave for later update
 tempoth <- Data4[c('Other',str.dt("ReasonOther:"),"County","Year")]
 summary(tempoth)
 ```
+
+Leave the decision for somebody who want to use it, just provide a dataset
+
 ```{r}
 str.dt(".(With|Adv).")
 Data4$`ReasonOther:Negative Reaction/Other`= rowSums(Data4[str.dt(".(With|Adv).")],na.rm = TRUE, dims=1)
@@ -560,7 +571,7 @@ tempmo <- Data4[c(str.dt("MO:"),"County","Year")]
 summary(tempmo)
 ```
 
-7) two wired vars 'Medical','ReasonUn:Outcome', which only has one value for "Calvert County, MD". This is caused by wired format of original pdf, just delete it
+7) two wired vars 'Medical','ReasonUn:Outcome', which only has one value for "Calvert County, MD, 2017". This is caused by wired format of original pdf, just delete it
 
 ```{r}
 summary(Data4[c('Medical','ReasonUn:Outcome')])
@@ -580,4 +591,6 @@ names(Data5)
 9) change all NA as 0 or leave there? 
 
 ReasonOther:Malicious has most NA:28
+
+leave the unknown adult to >20 years.
 

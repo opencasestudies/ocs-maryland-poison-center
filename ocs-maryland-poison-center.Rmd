@@ -15,9 +15,61 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Motivation 
 
+In this case study, the goal is to read in the data from the first page of PDF reports, which gives exposure counts for calls to the [Maryland Poison Center](https://www.mdpoison.com/). Finally we would like to create a tidy and clean dataset of calls to the Maryland Poison Center (MPC) based on reports form 2006 to 2008 of all counties(totally 312 files). Here is a brief introduction of it.
+
+<div align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/ylW3sy8CStc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
+</div>
+
+<center>
+[source: https://www.youtube.com/watch?time_continue=10&v=ylW3sy8CStc]
+</center>
+
+
+In previous open case studies, we have dealt with reading data from excel, csv or sas. There is a special format we have not tried---PDF, which have tremendous adoption rates and became ubiquitous in today???s work environment. Their ability to be viewed from a broad range of environments makes them especially appealing for exchanging important data. For example, many hedge funds try to create value from mining of news and various official filings, thus it is important to extract key information and update their investment method. Also, a vast amount of new information related to government policy appears constantly, with immediate impact on our life. Monitoring such information in real time is important for government organization but out of reach of the individual.  
+
+![](plot/pdf data.png)
+
+
+But it is always hard to extract data from pdfs and convert them to a neat excel or csv format. Why? First, pdfs are scanned in files and don't contain any 'selectable' text. While those documents are easily readable for humans, computers are not capable to understand the scanned image text. Of course you could do the simple copy and paste, but this would become time-consuming when you need to deal with hundreds or even thousands of pdfs. In addition, after reading PDFs, what you would get will be plenty of strings, which usually contain unstructured or semi-structured data. Therefore, it is necessary to learn the basics of how string works. 
+
+In this case study, we will focus on how to extract data from pdf documents provided by Maryland Poison Center, using the R package `pdftools`, and transform the original messy form into a tidy csv with package `stringr`.
+
+The libraries used in this study are listed in the following table, 
+along with their purpose in this particular case study:
+
+|Library|Purpose|
+|---|-------------------------------------------------------------------------------------------|
+|`kableExtra`|Helps with building common complex tables and manipulating table styles; creates nice-looking HTML tables|
+|`tidyverse`|A coherent system of packages for data manipulation, exploration and visualization |
+|`pdftools`| Text extraction, rendering and converting of PDF documents|
+|`stringr`|A consistent, simple and easy to use set of wrappers for common string operations|
+
+
+In order to run this code please ensure you have these packages installed. 
+
+The learning objectives for this case study include:
+
+  * extract data from pdf files
+  * string manipulation
+
 # What is the data? 
+The data files were downloaded from [the Maryland Report Card website](https://www.mdpoison.com/factsandreports/). 
+
+![](plot/agn18.png)
+
+Here was our plan:
+
+* Extract the data from the Allegany County 2018 pdf document.
+* After figuring it out for the Allegany County 2018 document, write a function to extract data from any pdf document with this structure (all MPC county reports have this same structure from 2006-2018)
+* Test this function on two additional counties (Prince George???s County, Talbot County) for 2018; update function as needed.
+* Download all 312 county pdf files (24 counties by 13 years) for 2006-2018.
+* Attempt to extract data from all 312 pdfs, modifying the function as needed to handle any errors.
+* Clean the resulting data set.
 
 # Data import
+
 
 # Data wrangling 
 
