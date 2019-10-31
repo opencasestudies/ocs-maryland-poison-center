@@ -29,7 +29,7 @@ In this case study, the goal is to read in the data from the first page of PDF r
 
 In previous open case studies, we have dealt with reading data from excel, csv or sas. There is a special format we have not tried---PDF, which have tremendous adoption rates and became ubiquitous in today???s work environment. Their ability to be viewed from a broad range of environments makes them especially appealing for exchanging important data. For example, many hedge funds try to create value from mining of news and various official filings, thus it is important to extract key information and update their investment method. Also, a vast amount of new information related to government policy appears constantly, with immediate impact on our life. Monitoring such information in real time is important for government organization but out of reach of the individual.  
 
-![](plot/pdf data.png)
+![](plot/pdf.data.jpg)
 
 
 But it is always hard to extract data from pdfs and convert them to a neat excel or csv format. Why? First, pdfs are scanned in files and don't contain any 'selectable' text. While those documents are easily readable for humans, computers are not capable to understand the scanned image text. Of course you could do the simple copy and paste, but this would become time-consuming when you need to deal with hundreds or even thousands of pdfs. In addition, after reading PDFs, what you would get will be plenty of strings, which usually contain unstructured or semi-structured data. Therefore, it is necessary to learn the basics of how string works. 
