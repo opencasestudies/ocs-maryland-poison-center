@@ -55,9 +55,6 @@ library(dplyr)
 library(pdftools)
 library(purrr)
 library(stringr)
-
-
-
 ```
 
 The learning objectives for this case study include:
@@ -71,7 +68,12 @@ All data files are provided by [the Maryland Poison Center (MPC)](https://www.md
  
 Annual reports about calls to the MPC can be accessed from [this page](https://www.mdpoison.com/factsandreports/), which include information for all states and individual counties. We would like to focus on the individual counties and they all have the same format like this:
 
+<center>
 ![](plot/format.png)
+</center>
+
+
+
 
 Here was our plan:
 
@@ -134,7 +136,10 @@ Nest, "Allegany County Statistical Report 2018.pdf" will be used as an example t
 
 # Data wrangling 
 
+<center>
 ![](plot/agn18.png)
+</center>
+
 
 
 ## Step 1: Read and Extract 
@@ -154,8 +159,9 @@ evfile <- "Allegany County Statistical Report 2018.pdf"
 evdf <- read(evfile)
 ```
 
-
+<center>
 ![](plot/read.png)
+</center>
  
 We can see that this function splits the individual words. "x" and "y" are the corresponding column and row value respectively so it is pretty easy for us to manipulate with them! Now we would try to group words in the same row together with `group_by()`.
 
@@ -204,7 +210,9 @@ evdf_line[5,]
 
 If we look at the original file:
 
+<center>
 ![](plot/split.png)
+</center>
 
 To split the data into two groups by column, we need to find the minimum column value for the right part and any text with smaller column value will be seen as the left column.
 
@@ -213,7 +221,9 @@ evdf %>% group_by(x) %>%
   arrange(y, .by_group=TRUE) 
 ```
 
+<center>
 ![](plot/colvalue.png)
+</center>
 
 The end of the first column is at x=258 and the begining of the right column is at x=266 so we would set x=265 as the threshold to designate left/right column. Above step will be wrote as function `mod()`.
 
@@ -273,8 +283,9 @@ evdf_cd[1:10,]
 
 Finally, there are some lines that are just text and not variables/counts and they can be directly removed, like “Reason for exposure”.
 
+<center>
 ![](plot/remove.png)
-
+</center>
 
 Similiarly, write all above as function `gp()`.
 
@@ -299,7 +310,7 @@ gp <- function(p1Data){
 }
 ```
 
-Then just combine this dataframe with information for year and county:
+Then just combine this dataframe with information for year and county as a row-like dataframe:
 
 ```{r}
 comb <- function(data, year, county){
@@ -330,6 +341,8 @@ fna_1 <- function(file){
 
 ```
 
+
+
 Great! Let's test on this file and another two additional files:
 
 ```{r eval=FALSE}
@@ -338,7 +351,9 @@ fna_1("Allegany County Statistical Report 2018.pdf")
 fna_1("Talbot County Statistical Report 2018.pdf")
 ```
 
+<center>
 ![](plot/fna1.png)
+</center>
 
 There isn't any problem for our wrangling function, which is good! And for each file, `fna_1()` returns a dataframe with size 1*45. Then we can try it on all files and merged all output into one dataframe:
 
@@ -353,11 +368,19 @@ for (i in 2:length(files)) {
 }
 ```
 
-The final dataset we could get contains `r nrow(D1)` and `r ncol(D1)` columns.
+The final dataset we could get contains `r nrow(D1)` rows and `r ncol(D1)` columns.
 
 ## Step 5: Specify Category 
 
 One thing we notice is that there are actually some sub-categories and we definitely wish to have MORE additional columns, and some of the sub-columns are now labeled with NA instead of the appropriate subcategory.
+
+<center>
+![](plot/sub-cg.png)
+</center>
+
+
+
+Like the plot above, "Reason for exposure" contains 3 sub-categories: Unintentional, Intentional and Other. We would like to specify records below them, to achieve this goal, we could update our group function:
 
 The higher categories are:
 Left column:
@@ -371,10 +394,9 @@ Management Site to Medical Outcome, give subcategory "MS"
 Medical outcome to end, give subcategory "MO"
 
 
-To achieve this, we only need to update the group function:
-```{r}
+```{r update gp 2}
 
-gp <- function(p1Data){
+gp_update <- function(p1Data){
   # group the data by column and height on the page
 # keep the last entry of that column/height as the value
 # assign the remaining entries for that column/height the name
@@ -396,7 +418,7 @@ y.un.min <- cd$y[cd$variable=="Unintentional"]
 y.un.max <- cd$y[cd$variable=="Intentional"]
 y.int.min <- cd$y[cd$variable=="Intentional"]
 
-x.min <- min(cd$xmin[cd$column=="Left"])
+x.min <- cd$xmin[cd$variable=="Total human exposures"]
 
 y.int.max <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
 y.other.min <- cd$y[cd$column=="Left" & cd$variable=="Other" & cd$xmin==x.min]
@@ -407,9 +429,9 @@ y.mo.min <- cd$y[cd$variable=="Medical"]
 
 cd <- cd %>%
   mutate(variableSub=ifelse(column=="Left" & y > y.age.min & y < y.age.max, "Age:",
-         ifelse(column=="Left" & y > y.un.min & y < y.un.max, "RFE-Unintent:",
-         ifelse(column=="Left" & y > y.int.min & y < y.int.max, "RFE-Intent:",
-         ifelse(column=="Left" & y > y.other.min, "RFE-Other:",
+         ifelse(column=="Left" & y > y.un.min & y < y.un.max, "ReasonUn:",
+         ifelse(column=="Left" & y > y.int.min & y < y.int.max, "ReasonInt:",
+         ifelse(column=="Left" & y > y.other.min, "ReasonOther:",
          ifelse(column=="Right" & y > y.ms.min & y < y.ms.max, "MS:",
          ifelse(column=="Right" & y > y.mo.min, "MO:", "")))))))     
       
@@ -422,19 +444,274 @@ cd <- cd %>%
   return(cd)
 }
 
+comb <- function(data, year, county){
+  # create the data frame for this county/date
+  myRow <- as.data.frame(t(as.numeric(gsub(",","",data$count))))
+  names(myRow) <- data$name
+  
+  myRow$Year <- year
+  myRow$County <- county
+  return(myRow)
+}
+
 ```
+
+With the updated function, we still need to update the final function:
 
 ```{r}
 fna_2 <- function(file){
   p1Data <- read(file)
   county <- ex(p1Data)[[1]]
   year <- ex(p1Data)[[2]]
-  d <- mod(p1Data)
-  d <- gp(d)
-  d <- comb(d, year, county)
+  d_mod <- mod(p1Data)
+  d_gp <- gp_update(d_mod)
+  d <- comb(d_gp, year, county)
   return(d)
 }
 ```
+
+Now, let's try our new function on the pdf files to see if it works well:
+
+```{r}
+d1 <- fna_2(paste0("./data/",files[1]))
+D2 <- d1
+
+options(warn=2)
+for (i in 2:length(files)) {
+  di <- fna_2(paste0("./data/",files[i]))
+  D2 <- bind_rows(D2,di)
+}
+```
+
+Here, the size of the final dataset becomes `r nrow(D1)` rwos and `r ncol(D1)` columns, which is different from the result when we apply function fna_1. To be specific, there are MORE additional columns. To get an ideal dataset, next important step is variable cleaning.
+
+
+## Step 6: Variable Cleaning
+
+Before cleaning them, let's check what variables do we have now:
+
+```{r eval=FALSE}
+colnames(D2)
+```
+
+
+<center>
+![](plot/sub-pb.png)
+</center>
+
+There are 6 subcategories which we defined before, and it is clear that there are some problems for each subcategory. The first problem is repeated sub-category, like "Age". This is because for different couties, the same subcategory may include different vairbles, so such kind of variables don't have complete information for all counties; Moreover, unknow information exists in each subcategory but it has different forms, leading to the problem that we get unnecessarily additional columns. 
+
+In the followning part, I will deal the whole dataframe for each subcategory. Since the type of all variable names are string, **regular expression (regexp)** would be a powelful tool. Strings always contain unstructured or semi-structured data, and regexp is considered as a concise language for describing pattern strings. In thi case study, we would like to focus on matching patterns with regexp.
+
+
+### Regexp Introduction
+
+Function [`str_detect()`](https://www.rdocumentation.org/packages/stringr/versions/1.4.0/topics/str_detect). It is useful to determine if a character vector matches a pattern, and returns a logical vector the same length as the input. 
+
+```{r}
+x <- c("apple", "banana", "tomato", "mint", "lemon")
+str_detect(x, "e")
+```
+
+In this example, for `x`, we would like to find if its string elements contain the word "e", so the result for the first (apple) and fifth (lemon) element is TRUE while for others is FALSE. If we want to subset these two elements, just run the following code:
+
+```{r}
+x[str_detect(x, "e")]
+```
+
+
+To prepare you for perfomring the matching procedue, common patterns are introduced here:
+
+
+```{r}
+ex_re = c("Abc", "aabc", "a abc", "abcd", "abbbCde", "acd", "aBcD")
+ex_re
+```
+
+`^` and `$` finds any string that starts with and ends with certain characters respectively:
+
+```{r}
+ex_re[str_detect(ex_re,"^A")]
+ex_re[str_detect(ex_re,"e$")]
+```
+
+Parentheses `()` create a capturing group with value "Cde", and `.` matches any character:
+
+```{r}
+ex_re[str_detect(ex_re, ".(Cde)")]
+```
+
+If we want to find strings that have "a" followed by "a" or "B",  `()` means capturing group and `|` means OR operand so we could write:
+
+```{r}
+ex_re[str_detect(ex_re, "a(a|B)")]
+```
+
+`+` means one or more, if we want to find strings that have "a" followed by one or more "b"
+
+```{r}
+ex_re[str_detect(ex_re, "^ab+")]
+```
+
+
+You can also use the combination to generate complex matches. For example, `.+` matches any character one or more times.
+
+Let's try then! The following code is to find string start with "a" and end with "d" or "D", but we don't care about the middle part:
+
+```{r}
+ex_re[str_detect(ex_re, "^a.+(d$|D$)")]
+```
+
+
+Considering we have to find different patterns to match the variables that needed to be dealt with, let's define a general function to find colnames with certain pattern with function. Just like the example, first get a logical vector, and then use this vector to extract variables needed.
+
+```{r}
+str.dt <- function(pattern){
+  x.bool <- str_detect(colnames(D2),pattern)
+  x <- colnames(D2)[x.bool]
+  return(x)
+}
+```
+
+
+### Age
+
+Let's check all variables of Age sub-category:
+
+```{r}
+str.dt("Age:")
+```
+
+One variable called "Age:<60 years" is pretty wried since it covers lots of other variables. Therefore let's look which observation contain this information:
+
+```{r}
+idx <- is.na(D2[str.dt("Age:<60")])
+D2[idx==FALSE,c("Age:>60 years","County","Year")]
+```
+
+Only Caroline county includes this information and it has no value for "Age:>60 years" which is a common variable for all counties. Thus, we believe "<60" is a typo and it should be ">60" instead.
+
+
+Then, we find there are Unknow adult, Unknown Adult, Adult, 20-, >60, <60 (typo), it is easy to extact them and check the corresponding summary with the following code:
+
+```{r}
+temp_age <- c(str.dt("Age:(Ad|20-|>60|<60)"),str.dt(".(Adu|adu)"))
+summary(D2[temp_age])
+```
+
+
+All of them have a large proportion of NA's. This is because when MPC collected information, it may use different variables to represent the same kind of information. Just like Caroline county, it has information in "<60" but only has NA in ">60". So we decide to sum all their values as a new vairble "Age:>20 years":
+
+```{r}
+D2$`Age:>20 years`= rowSums(D2[temp_age],na.rm = TRUE, dims=1)
+summary(D2$`Age:>20 years`)
+```
+
+`na.rm = TRUE` calculates the sum of the non-NA values in these variables and `dim = 1` tells R to sum over column rather than row.
+
+The new variable has no NA's. Done for the Age part!
+
+### RFE-Unintent
+
+First let's check variables in RFE-Unintent sub-category:
+
+```{r}
+str.dt("ReasonUn:")
+tempun <- D2[c(str.dt("ReasonUn:"),"County","Year")]
+```
+
+Do you notice there are actually repeated information for two variables, "Bite or sting" and "Bite and Sting", "Food Poisoning" and "Food poisoning". The only difference is the upper-case and lower-case but they represent the same thing so use new variables to store their values:
+
+```{r}
+str.dt(".(Poi|poi)")
+D2$`ReasonUn:Botulism`= rowSums(D2[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
+str.dt(".(or Sti|or sti)")
+D2$`ReasonUn:Bite/Sting`= rowSums(D2[str.dt(".(or Sti|or sti)")],na.rm = TRUE, dims=1)
+```
+
+One thing you should be very careful is how to create the new variable. Since all of the variables we dealt with will be dropped, so do pay attention the new variable has different pattern from these old variables.  
+
+
+### RFE-Other
+
+Look at variables for RFE-Other sub-category:
+
+```{r}
+str.dt("ReasonOther:")
+```
+
+One major problem is repeated information for unknow information but we would deal with it in later steps together with all sub-categories.
+
+
+Another problem is still the upper-case and lower-case difference, so we could dealt with it similiarly. Also
+putting space after "/" in new variable as "/ " is intend to avoid deleting the new one in later step:
+
+```{r}
+str.dt(".(/Tamp|/tamp).")
+D2$`ReasonOther:Contamination/ Tampering`= rowSums(D2[str.dt(".(/Tamp|/tamp).")],na.rm = TRUE, dims=1)
+```
+
+### RFE-Intent, MS and MO 
+
+For RFE-Intent, MS and MO sub-category, there are no additional problems except unknow information.
+
+```{r}
+str.dt("ReasonInt:")
+str.dt("MS:")
+str.dt("MO:")
+```
+
+### Unknown Information
+
+As we mentioned over and over, one common probelm for each subcategory is multiple similiar variables to represent unknown information, we would like to sum all values in "Unknown" or "Other", and create a new 
+" Unknown All" column to store the sum value, here we leave a space for the same reason: avoid to create same pattern
+
+```{r}
+D2$`Age: Unknown All`= rowSums(D2[str.dt("^Age.+(ge|wn|ld)$")],na.rm = TRUE, dims=1)
+D2$`ReasonUn: Unknown All`= rowSums(D2[str.dt("ReasonUn:(Unk|Oth)")],na.rm = TRUE, dims=1)
+D2$`ReasonOther: Unknown All`= rowSums(D2[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
+D2$`MS: Unknown All`= rowSums(D2[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
+
+
+c(str.dt("^Age.+(ge|wn|ld)$"),str.dt("ReasonUn:(Unk|Oth)"),str.dt("ReasonOther:(Unk|Oth)"),
+  str.dt("MS:(Unk|Oth)"))
+
+```
+
+### Additional Step
+
+There are actually 2 wired variables 'Medical','ReasonUn:Outcome', which only has one value;
+
+```{r}
+summary(D2[c('Medical','ReasonUn:Outcome')])
+```
+
+ for "Calvert County, MD, 2017". This is caused by wired format of original pdf, just delete it
+ 
+```{r}
+idx <- is.na(D2[c('Medical','ReasonUn:Outcome')])
+
+D2[idx==FALSE,c("County","Year")]
+```
+
+```{r}
+table(idx)["FALSE"]
+#idx
+```
+
+
+In all, we make change on 32 variables and now let's drop all old variables and save into a new dataframe
+```{r}
+drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
+           str.dt(".(Poi|poi)"), str.dt(".(or Sti|or sti)"), 
+           str.dt(".(/Tamp|/tamp)."), str.dt("^Age.+(ge|wn|ld)$"),
+           str.dt("ReasonUn:Unk"), str.dt("ReasonOther:(Unk|Oth)"),
+           str.dt("MS:(Unk|Oth)"),"Medical",'ReasonUn:Outcome')
+
+Df <- D2[ , !(names(D2) %in% drops)]
+#sort(names(Df))
+```
+
 
 # Exploratory data analysis
 
