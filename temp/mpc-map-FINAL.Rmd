@@ -38,7 +38,7 @@ md <- map_data('county', 'maryland')
 ### md state line map definition data
 state.md <- map_data('state', 'maryland')
 ### county population data
-popData <- read_csv("./PEP_2018_PEPANNRES/PEP_2018_PEPANNRES.csv")
+popData <- read_csv("pop.csv")
 
 ### filter to just 2010-2018; get subregions to match
 mpcPlotData <- mpcData %>%
@@ -47,7 +47,7 @@ mpcPlotData <- mpcData %>%
 
 mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,", md", "")
 mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion," county", "")
-mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"’", "")
+#mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"???", "")
 mpcPlotData$subregion = str_replace_all(mpcPlotData$subregion,"[.]", "")
 
 # join mpc to map data

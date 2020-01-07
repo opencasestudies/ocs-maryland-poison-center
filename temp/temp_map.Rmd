@@ -1,0 +1,266 @@
+---
+title: "temp_map"
+author: "kexin wang"
+date: "12/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Map
+
+```{r}
+library(tidyverse)
+#library(ggmap)
+library(maps) 
+library(gganimate)
+#library(gifski)
+library(transformr)  # to use polygons in animation
+```
+
+## 2018
+
+```{r}
+map_df <- read_csv("ocs_MPC_data.csv")
+### md county line map definition data
+md <- map_data('county', 'maryland')
+### md state line map definition data
+state.md <- map_data('state', 'maryland')
+### county population data
+popData <- read_csv("pop.csv")
+```
+
+`map_data()` in ggplot package, *mps library that ggplot load for you*
+
+1.long is longitude. Things to the west of the prime meridian are negative.
+2.lat is latitude.
+3.order. This just shows in which order ggplot should connect the dots.
+4.region and subregion tell what region or subregion a set of points surrounds.
+5.group. This is very important! ggplot2's functions can take a group argument which controls (amongst other things) whether adjacent points should be connected by lines. If they are in the same group, then they get connected, but if they are in different groups then they don't. In our case, each county has its own group number.
+
+```{r}
+### filter to just 2018; get subregions to match
+mpc2018 <- map_df %>%
+  filter(Year==2018) %>%
+  mutate(subregion=tolower(County))
+
+
+mpc2018$subregion
+
+mpc2018$`Total human exposures`
+```
+
+Since we would like to merge the dataset based on the "subregion", we will make them to be the same format by using tolower matches the case in the md and state.md table. 
+
+```{r}
+str.rp <- function(str, p){
+  str <- str_replace_all(str,p, "")
+  return(str)
+}
+
+p1=c(", md| county|[.]|???")
+temp <- str.rp(mpc2018$subregion, p1)
+
+mpc2018$subregion=temp
+mpc2018$subregion
+```
+
+
+when we define multiple patterns, we use regex operator rather vector. When fed with a single pattern, `str_replace_all` will compare that pattern for against every element. However, if you pass it a vector, it will try to respect the order, so compare the first pattern with the first object, then the second pattern with the second object, which is not what we want.
+
+
+```{r}
+# join mpc to map data
+plotData <- inner_join(md, mpc2018, by="subregion")
+plotData
+```
+
+Now I need to find some population data by county:
+
+```{r}
+pop2018 <- popData %>%
+  select(`2018`=respop72018, `GEO.display-label`) %>%
+  mutate(subregion=tolower(`GEO.display-label`))
+
+unique(plotData$subregion)
+```
+
+
+```{r}
+# need to remove the , md and the apostrophes
+p2=c(", maryland| county|'|[.]")
+
+pop2018$subregion = str.rp(pop2018$subregion, p2)
+
+unique(plotData$subregion)
+
+```
+
+  
+
+```{r}
+plot18 <- inner_join(plotData, pop2018, by="subregion")
+
+unique(plot18$subregion)
+
+```
+
+
+```{r}
+plot18 <- plot18 %>%
+  mutate(THEperCap=`Total human exposures`/`2018`*1000)
+
+
+head(plot18)
+```
+
+
+map in this format can be plotted by function `geom_polygon()`, it draws lines together between points in the same group based on the longtitude and latitude value. `fill`
+
+`coord_fixed()` fixes the relationship between one unit in the y direction and one unit in the x direction, we find 1.3 is the best choice.
+
+
+
+```{r}
+ggplot() + 
+  geom_polygon(data = plot18, aes(x=long, y = lat, fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) + 
+  theme_bw()
+
+```
+
+
+
+?  PG and M counties do have accurate counts, just very low; While for kent, talbot and dorchester, the value is much higher.
+
+
+```{r}
+plot18[plot18$subregion=="prince georges",]
+```
+
+## animate it
+
+When we create animation, the concept is pretty simple ?????? the motion of an animated plot is driven by a grouped variable in the dataset. Each group will be used to create a single plot, and finally these plots are stitched together as multiple layers to create the animation.
+
+First we select data from 2010 to 2018
+
+```{r}
+mpc <- map_df %>%
+  filter(Year >= 2010) %>%
+  mutate(subregion=tolower(County))
+
+mpc$subregion <- str.rp(mpc$subregion, p1)
+
+unique(mpc$subregion)
+```
+
+```{r}
+colnames(popData) <- str.rp(colnames(popData), "respop7")
+```
+
+
+
+
+```{r}
+popdata <- popData %>%
+  select(`2010`:`2018`, subregion=`GEO.display-label`) %>%
+  mutate(subregion=str.rp(tolower(subregion),p2)) %>%
+  gather(Year, Population, `2010`:`2018`)%>%
+  mutate(Year=as.numeric(Year))
+  
+popdata 
+```
+
+
+To make the later merging step easier, we reformat the dataset `popData` such that the time variable (`Year`) is gathered together as a single variable rather than spreading across the columns. Function `gather( key=, value=)` takes columns `2010`:`2018` as we specified, and collapses into key-value pairs (`Population`), duplicating all other columns as needed. 
+
+```{r}
+# join mpc to map data
+join_data <- inner_join(md, mpc, by="subregion")
+# join population data to mpc and map data
+join_data <- inner_join(join_data, popdata, by=c("subregion", "Year"))
+
+join_data <-  join_data%>%
+  mutate(Rate=`Total human exposures`/`Population`*10000)
+```
+
+
+```{r}
+
+join_data[join_data$subregion=="prince georges",c('subregion','Year','Rate','Total human exposures', 'Population')]
+
+
+summary(join_data$`Total human exposures`)
+summary(join_data$Population)
+```
+
+
+Besides, if you take a look at the original pdf files for this two counties, it mentions that "This report reflects only the calls to the Maryland Poison Center from Montgomery/ Prince Georges County. For complete statistics, statistics from the National Capitol Poison Center should also be consulted." Thus we decide to exclude these two counties by assigning NA to their rate. 
+
+```{r}
+
+join_data[,c('subregion','Rate','Total human exposures', 'Population')]
+```
+
+This is the dataset we will use to create the animation!
+
+
+```{r}
+# to get text of year to show in middle of plot
+join_data <- join_data %>%
+  mutate(xloc=-78.5, yloc=38.75)
+
+# initial map information
+baseMap <- ggplot() + 
+  geom_polygon(data = join_data, aes(x=long, y = lat, fill=Rate, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
+  coord_fixed(1.3) +
+  scale_fill_gradient(low = "white", high = "purple", na.value="grey80") +
+  labs(title="Total human exposures per 10,000 individuals", fill="Rate per 10k", caption="Data sources: (1) Maryland Poison Center (2) U.S. Census Bureau, Population Division \n Data for Prince George's and Montgomery Counties are excluded since complete data from these counties requires consideration of calls to the National Capitol Poison Center as well.") 
+
+baseMap
+```
+
+*which year is used in the base map*
+
+```{r}
+# make minimal theme, change position of legend and title
+upgradedMap <- baseMap +
+  theme_void() +
+  theme(legend.position=c(.92,.7), legend.text.align=0, 
+        plot.title=element_text(hjust=.1, face="bold"), 
+        plot.caption=element_text(hjust=0)) 
+
+upgradedMap
+```
+
+
+```{r}
+# animate and add year label to animation
+animatedMap <- upgradedMap +
+  geom_text(data=join_data, aes(y=yloc, x=xloc, label=as.character(Year)), 
+            check_overlap = TRUE, size=10, fontface="bold") +
+  transition_states(Year, 3, 20)
+
+# save as gif
+mapGIF <- animate(animatedMap) 
+
+# display gif
+mapGIF
+```
+
+function `animate()` takes a gganim object and renders it into an animation
+
+
+Here, `transition_states()` function splits your data into multiple states based on the levels in a given column, corresoinding to multiple layers mentioned above. The relative length of the transition (`transition_length`) and the pause at the states (`state_length`) are defined as 3 and 20 repectively.
+
+Write the gif image to a file using `anim_save()`:
+
+```{r}
+anim_save("MPCmap.gif", animation=mapGIF)
+```
+
+

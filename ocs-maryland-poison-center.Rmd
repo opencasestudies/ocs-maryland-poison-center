@@ -13,23 +13,22 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message = FALSE,
                       warning = FALSE)
 ```
+
 # Motivation 
 
-In this case study, the goal is to read in the data from the first page of PDF reports, which gives exposure counts for calls to the [Maryland Poison Center](https://www.mdpoison.com/). Finally we would like to create a tidy and clean dataset of calls to the Maryland Poison Center (MPC) based on reports form 2006 to 2008 of all counties(totally 312 files). Here is a brief introduction of it.
-
-<div align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/ylW3sy8CStc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-</iframe>
-</div>
+In this case study, the goal is to read in the data from the first page of PDF reports, which gives exposure counts for calls to the [Maryland Poison Center](https://www.mdpoison.com/). Finally we would like to create a tidy and clean dataset of calls to the Maryland Poison Center (MPC) based on reports form 2006 to 2008 of all counties(totally 312 files). 
 
 <center>
-[source: https://www.youtube.com/watch?time_continue=10&v=ylW3sy8CStc]
+![](MPCmap.gif)
 </center>
 
 
-In previous open case studies, we have dealt with reading data from excel, csv or sas. There is a special format we have not tried---PDF, which have tremendous adoption rates and became ubiquitous in today’s work environment. Their ability to be viewed from a broad range of environments makes them especially appealing for exchanging important data. For example, many hedge funds try to create value from mining of news and various official filings, thus it is important to extract key information and update their investment method. Also, a vast amount of new information related to government policy appears constantly, with immediate impact on our life. Monitoring such information in real time is important for government organization but out of reach of the individual.  
+In previous open case studies, we have dealt with reading data from excel, csv or sas. There is a special format we have not tried---PDF, which have tremendous adoption rates and became ubiquitous in today's work environment. Their ability to be viewed from a broad range of environments makes them especially appealing for exchanging important data. For example, many hedge funds try to create value from mining of news and various official filings, thus it is important to extract key information and update their investment method. Also, a vast amount of new information related to government policy appears constantly, with immediate impact on our life. Monitoring such information in real time is important for government organization but out of reach of the individual.  
 
-![](plot/pdf.data.jpg)
+
+<center>
+![](plot/PDF.png)
+</center>
 
 
 But it is always hard to extract data from pdfs and convert them to a neat excel or csv format. Why? First, pdfs are scanned in files and don't contain any 'selectable' text. While those documents are easily readable for humans, computers are not capable to understand the scanned image text. Of course you could do the simple copy and paste, but this would become time-consuming when you need to deal with hundreds or even thousands of pdfs. In addition, after reading PDFs, what you would get will be plenty of strings, which usually contain unstructured or semi-structured data. Therefore, it is necessary to learn the basics of how string works. 
@@ -45,7 +44,9 @@ along with their purpose in this particular case study:
 |`tidyverse`|A coherent system of packages for data manipulation, exploration and visualization |
 |`pdftools`| Text extraction, rendering and converting of PDF documents|
 |`stringr`|A consistent, simple and easy to use set of wrappers for common string operations|
-
+|`readr`|Provide a fast and friendly way to read rectangular data, such as 'csv'|
+|`maps`|Display of maps|
+|`ggplot2`|Create elegant data visualisations using the grammar of graphics|
 
 In order to run this code please ensure you have these packages installed. 
 
@@ -55,6 +56,10 @@ library(dplyr)
 library(pdftools)
 library(purrr)
 library(stringr)
+library(readr)
+library(maps)
+library(ggplot2)
+library(gganimate)
 ```
 
 The learning objectives for this case study include:
@@ -79,7 +84,7 @@ Here was our plan:
 
 * Download  all 312 county pdf files (24 counties by 13 years) for 2006-2018. 
 * Write a function to extract data from any pdf document with this structure (all MPC county reports have this same structure from 2006-2018). To show what I would like to get more clearly, a sample document (Allegany County 2018) is used as example.
-* Test this function on two additional counties (Prince George’s County, Talbot County) for 2018; update function as needed.
+* Test this function on two additional counties (Prince George's County, Talbot County) for 2018; update function as needed.
 * Attempt to extract data from all 312 pdfs, modifying the function as needed to handle any errors.
 * Clean the resulting data set with regular expression.
 
@@ -200,7 +205,7 @@ evdf_ex
 
 ## Step 2&3: Slice & Split
 
-The first few lines of text don’t contain any data, but do contain the year and county for the document. After extracting year and county, the second step is to slice out the header part. Our strategy is to find the where "calls" appear at the first time, that's why I use min() to get its row value. Then just keep rows with larger value than it.
+The first few lines of text don't contain any data, but do contain the year and county for the document. After extracting year and county, the second step is to slice out the header part. Our strategy is to find the where "calls" appear at the first time, that's why I use min() to get its row value. Then just keep rows with larger value than it.
 
 We still have the problem of the fact that there are really two columns worth of data on this page of the pdf, which is reflected in row 5 of this line data frame:
 
@@ -257,7 +262,7 @@ evdf_line2 <- evdf_mod %>%
 head(evdf_line2)
 ```
 
-The problem is that we don't think we actually want to collapse across all words in a row, because the last text value is the count of observations in that category. To achieve it, the last text piece is kept as the variable’s value and the previous pieces is used to make up the variable’s name. Suppose there is only one text piece, leave it as name.
+The problem is that we don't think we actually want to collapse across all words in a row, because the last text value is the count of observations in that category. To achieve it, the last text piece is kept as the variable's value and the previous pieces is used to make up the variable's name. Suppose there is only one text piece, leave it as name.
 
 ```{r}
 evdf_gp <- evdf_mod%>% 
@@ -270,7 +275,7 @@ evdf_gp <- evdf_mod%>%
 evdf_gp[1:10,]
 ```
 
-Once these pieces were labelled appropriately, we can collapse across the values of the variable’s name to get both the variable itself and the count for that variable. Still, function `paste()` is helpful to merge things of the same row together:
+Once these pieces were labelled appropriately, we can collapse across the values of the variable's name to get both the variable itself and the count for that variable. Still, function `paste()` is helpful to merge things of the same row together:
 
 ```{r}
 evdf_cd <- evdf_gp%>% 
@@ -281,7 +286,7 @@ evdf_cd <- evdf_gp%>%
 evdf_cd[1:10,]
 ```
 
-Finally, there are some lines that are just text and not variables/counts and they can be directly removed, like “Reason for exposure”.
+Finally, there are some lines that are just text and not variables/counts and they can be directly removed, like 'Reason for exposure'.
 
 <center>
 ![](plot/remove.png)
@@ -370,7 +375,7 @@ for (i in 2:length(files)) {
 
 The final dataset we could get contains `r nrow(D1)` rows and `r ncol(D1)` columns.
 
-## Step 5: Specify Category 
+## Step 5: Specify category 
 
 One thing we notice is that there are actually some sub-categories and we definitely wish to have MORE additional columns, and some of the sub-columns are now labeled with NA instead of the appropriate subcategory.
 
@@ -486,7 +491,7 @@ for (i in 2:length(files)) {
 Here, the size of the final dataset becomes `r nrow(D1)` rwos and `r ncol(D1)` columns, which is different from the result when we apply function fna_1. To be specific, there are MORE additional columns. To get an ideal dataset, next important step is variable cleaning.
 
 
-## Step 6: Variable Cleaning
+## Step 6: Variable cleaning
 
 Before cleaning them, let's check what variables do we have now:
 
@@ -562,7 +567,6 @@ Let's try then! The following code is to find string start with "a" and end with
 ex_re[str_detect(ex_re, "^a.+(d$|D$)")]
 ```
 
-
 Considering we have to find different patterns to match the variables that needed to be dealt with, let's define a general function to find colnames with certain pattern with function. Just like the example, first get a logical vector, and then use this vector to extract variables needed.
 
 ```{r}
@@ -593,6 +597,11 @@ Only Caroline county includes this information and it has no value for "Age:>60 
 
 
 Then, we find there are Unknow adult, Unknown Adult, Adult, 20-, >60, <60 (typo), it is easy to extact them and check the corresponding summary with the following code:
+
+** First fix the typo into >60 
+and then create an overall new variable
+and then keep 20-59, >60
+
 
 ```{r}
 temp_age <- c(str.dt("Age:(Ad|20-|>60|<60)"),str.dt(".(Adu|adu)"))
@@ -678,7 +687,7 @@ c(str.dt("^Age.+(ge|wn|ld)$"),str.dt("ReasonUn:(Unk|Oth)"),str.dt("ReasonOther:(
 
 ```
 
-### Additional Step
+### Additional steps
 
 There are actually 2 wired variables 'Medical','ReasonUn:Outcome', which only has one value;
 
@@ -686,7 +695,15 @@ There are actually 2 wired variables 'Medical','ReasonUn:Outcome', which only ha
 summary(D2[c('Medical','ReasonUn:Outcome')])
 ```
 
- for "Calvert County, MD, 2017". This is caused by wired format of original pdf, just delete it
+for "Calvert County, MD, 2017". This is caused by wired format of original pdf, just delete it
+
+
+<center>
+![](plot/calvert.png)
+</center>
+
+
+
  
 ```{r}
 idx <- is.na(D2[c('Medical','ReasonUn:Outcome')])
@@ -701,6 +718,7 @@ table(idx)["FALSE"]
 
 
 In all, we make change on 32 variables and now let's drop all old variables and save into a new dataframe
+
 ```{r}
 drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
            str.dt(".(Poi|poi)"), str.dt(".(or Sti|or sti)"), 
@@ -709,13 +727,239 @@ drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
            str.dt("MS:(Unk|Oth)"),"Medical",'ReasonUn:Outcome')
 
 Df <- D2[ , !(names(D2) %in% drops)]
+
+
 #sort(names(Df))
 ```
 
 
-# Exploratory data analysis
+Write this clean data to a .csv file:
 
-# Data analysis 
+```{r writeData}
+write_csv(Df, "ocs_MPC_data.csv")
+```
+
+# Animated map creation
+
+In this section, we would like to take the Maryland Poison Control data that we cleaned, and create a map showing the rates of exposures by county. Additionally, we also want to animate this map to show how these rates change over time. 
+
+## Single map - year 2018
+
+
+### Data cleaning
+
+To make each step more clear, we use data in year 2018 as an example.
+
+```{r}
+map_df <- read_csv("ocs_MPC_data.csv")
+### md county line map definition data
+md <- map_data('county', 'maryland')
+### md state line map definition data
+state.md <- map_data('state', 'maryland')
+### county population data
+popData <- read_csv("pop.csv")
+```
+
+
+Package `ggplot` loads the package `maps` to run function `map_data()`. We mainly use `county` and `state` variable, which provide information of the counties and states of the United States mainland generated from US Department of the Census data respectively. Below is the detailed explanation about this function:
+
+1.long is longitude. Things to the west of the prime meridian are negative.
+2.lat is latitude.
+3.order. This just shows in which order ggplot should connect the dots.
+4.region and subregion tell what region or subregion a set of points surrounds.
+5.group. This is very important! ggplot2's functions can take a group argument which controls (amongst other things) whether adjacent points should be connected by lines. If they are in the same group, then they get connected, but if they are in different groups then they don't. In our case, each county has its own group number.
+
+
+Since we would like to merge the dataset based on the `subregion`, it is necessary to change them to be the same format as that in the `md` and `state.md` dataset. First use `tolower` to change all words into lowerer case and then replace some patterns to `""`. Keep in mind that when you define multiple patterns, use regex operator rather vector. When fed with a single pattern, `str_replace_all` will compare that pattern for against every element. However, if you pass it a vector, it will try to respect the order, so compare the first pattern with the first object, then the second pattern with the second object, which is not what we want.
+
+
+```{r}
+### filter to just 2018; get subregions to match
+mpc2018 <- map_df %>%
+  filter(Year==2018) %>%
+  mutate(subregion=tolower(County))
+
+str.rp <- function(str, p){
+  str <- str_replace_all(str,p, "")
+  return(str)
+}
+
+p1 = c(", md| county|[.]|’")
+mpc2018$subregion <- str.rp(mpc2018$subregion, p1)
+
+mpc2018$subregion
+```
+
+Great! Variable subregion has been reformatted successfully and now let's merge datasets.
+
+```{r}
+# join mpc to map data
+plotData <- inner_join(md, mpc2018, by="subregion")
+```
+
+Now we need to find some population data by county and remove the `, md` and the apostrophes:
+
+```{r}
+pop2018 <- popData %>%
+  select(`2018`=respop72018, `GEO.display-label`) %>%
+  mutate(subregion=tolower(`GEO.display-label`))
+
+p2=c(", maryland| county|'|[.]")
+
+pop2018$subregion = str.rp(pop2018$subregion, p2)
+
+```
+
+### Plotting exposure rates by county
+
+Now we can join all three data sets (MPC, map, and population) together and create an exposure rate variable with exposures per 10,000 people:
+
+```{r}
+plot18 <- inner_join(plotData, pop2018, by="subregion")
+
+unique(plot18$subregion)
+
+plot18 <- plot18 %>%
+  mutate(THEperCap=`Total human exposures`/`2018`*10000)
+
+```
+
+
+map in this format can be plotted by function `geom_polygon()`, it draws lines together between points in the same group based on the longtitude and latitude value. `fill`. `coord_fixed()` fixes the relationship between one unit in the y direction and one unit in the x direction, we find 1.3 is the best choice.
+
+
+```{r}
+ggplot() + 
+  geom_polygon(data = plot18, aes(x=long, y = lat, 
+              fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
+              color="black", fill=NA) + coord_fixed(1.3) + 
+  theme_bw() + scale_fill_gradient(low = "white", 
+                                   high = "purple", na.value="grey80")
+
+```
+
+PG and M counties do have accurate counts, just very low. If you take a look at the original pdf files for this two counties, it mentions that "This report reflects only the calls to the Maryland Poison Center from Montgomery/ Prince Georges County. For complete statistics, statistics from the National Capitol Poison Center should also be consulted." Thus we decide to exclude these two counties by assigning NA to their rate. 
+
+```{r}
+plot18 <- plot18 %>%
+  mutate(THEperCap = ifelse(subregion=="prince georges" | 
+        subregion=="montgomery", NA, `Total human exposures`/`2018`*10000))
+
+
+ggplot() + 
+  geom_polygon(data = plot18, aes(x=long, y = lat, 
+              fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
+              color="black", fill=NA) + coord_fixed(1.3) + 
+  theme_bw() + scale_fill_gradient(low = "white", 
+                                   high = "purple", na.value="grey80")
+
+```
+
+We can see that Kent and Talbot county (in dark purple at the right part of the map) have much higher numbers of exposures than the other counties in Maryland. Also, after removing the artificially low rates for these two counties, we are also able to see more differentiation between the other counties since the exposure scale has been re-scaled to a new lowest value.
+
+## Animation
+
+### Base exposure rate map
+
+When we create animation, the concept is pretty simple as the motion of an animated plot is driven by a grouped variable in the dataset. Each group will be used to create a single plot, and finally these plots are stitched together as multiple layers to create the animation. 
+
+<center>
+![](plot/animate.png)
+
+[https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3]
+</center>
+
+First we select data from 2010 to 2018 and merge necessary information as used in previous example:
+
+```{r}
+mpc <- map_df %>%
+  filter(Year >= 2010) %>%
+  mutate(subregion=tolower(County))
+
+mpc$subregion <- str.rp(mpc$subregion, p1)
+
+
+colnames(popData) <- str.rp(colnames(popData), "respop7")
+
+popdata <- popData %>%
+  select(`2010`:`2018`, subregion=`GEO.display-label`) %>%
+  mutate(subregion=str.rp(tolower(subregion),p2)) %>%
+  gather(Year, Population, `2010`:`2018`)%>%
+  mutate(Year=as.numeric(Year))
+  
+```
+
+To make the later merging step easier, we reformat the dataset `popData` such that the time variable (`Year`) is gathered together as a single variable rather than spreading across the columns. Function `gather( key=, value=)` takes columns `2010`:`2018` as we specified, and collapses into key-value pairs (`Population`), duplicating all other columns as needed. 
+
+```{r}
+# join mpc to map data
+join_data <- inner_join(md, mpc, by="subregion")
+# join population data to mpc and map data
+join_data <- inner_join(join_data, popdata, by=c("subregion", "Year"))
+
+join_data <-  join_data%>%
+  mutate(Rate= ifelse(subregion=="prince georges" | subregion=="montgomery", NA,`Total human exposures`/`Population`*10000))
+
+```
+
+Now we get dataset that will be used to create the animation!
+
+
+```{r}
+# to get text of year to show in middle of plot
+join_data <- join_data %>%
+  mutate(xloc=-78.5, yloc=38.75)
+
+# initial map information
+baseMap <- ggplot() + 
+  geom_polygon(data = join_data, aes(x=long, y = lat, 
+              fill=Rate, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, 
+              group=group), color="black", fill=NA) + coord_fixed(1.3) +
+  scale_fill_gradient(low = "white", high = "purple", na.value="grey80") +
+  theme_void() + theme(legend.position=c(.92,.7), legend.text.align=0, 
+        plot.title=element_text(hjust=.1, face="bold"), 
+        plot.caption=element_text(hjust=0)) +
+  labs(title="Total human exposures per 10,000 individuals", 
+       fill="Rate per 10k", caption="Data sources: 
+       (1) Maryland Poison Center 
+       (2) U.S. Census Bureau, Population Division \n 
+       Data for Prince George's and Montgomery Counties 
+       are excluded since complete data from these counties 
+       requires consideration of calls to 
+       the National Capitol Poison Center as well.") 
+
+baseMap
+```
+
+### Animate exposure rate map over time 
+
+The last step was to animate the graph using the `gganimate` package, which enables you to build motion more much more easily. Again, [an online tutorial](https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3) inspires us a lot.
+
+Here, `transition_states()` function splits your data into multiple states based on the levels in a given column, corresoinding to multiple layers mentioned above. The relative length of the transition (`transition_length`) and the pause at the states (`state_length`) are defined as 3 and 20 repectively. In addition, function `animate()` takes a gganim object and renders it into an animation.
+
+
+```{r}
+# animate and add year label to animation
+animatedMap <- baseMap +
+  geom_text(data=join_data, aes(y=yloc, x=xloc, label=as.character(Year)), 
+            check_overlap = TRUE, size=10, fontface="bold") +
+  transition_states(Year, 3, 20)
+
+# save as gif
+mapGIF <- animate(animatedMap) 
+
+# display gif
+mapGIF
+```
+
+Write the gif image to a file using `anim_save()`:
+
+```{r}
+anim_save("MPCmap.gif", animation=mapGIF)
+```
 
 # Summary of results
 

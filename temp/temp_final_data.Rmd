@@ -174,3 +174,15 @@ DF <- df[ , !(names(df) %in% drops)]
 
 sort(names(DF))
 ```
+
+
+1. purr() function  and map() function, glue package
+2. tibble()
+3. add a link of tutorial on it
+
+
+
+
+
+
+

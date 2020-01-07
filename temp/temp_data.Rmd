@@ -588,9 +588,5 @@ drops <- c(str.dt("^Age:Unk"),str.dt("ReasonUn:Unk"),
 Data5 <- Data4[ , !(names(Data4) %in% drops)]
 names(Data5)
 ```
-9) change all NA as 0 or leave there? 
 
-ReasonOther:Malicious has most NA:28
-
-leave the unknown adult to >20 years.
 
