@@ -20,9 +20,9 @@ In this case study, the goal is to read in the data
 from the first page of PDF reports, 
 which gives exposure counts for calls to the 
 [Maryland Poison Center](https://www.mdpoison.com/). 
-Finally we would like to create a tidy and clean dataset of calls
+Finally, we would like to create a tidy and clean dataset of calls
 to the Maryland Poison Center (MPC) based on reports 
-form 2006 to 2008 of all counties(totally 312 files). 
+from 2006 to 2008 of all counties (totally 312 files). 
 Then we could visualize some information by animation along time horizons.
 
 <center>
@@ -53,8 +53,8 @@ and convert them to a neat excel or csv format.
 Why? First, pdfs are scanned in files and don't contain
 any 'selectable' text. While those documents are 
 easily readable for humans, computers are not capable to 
-understand the scanned image text. Of course you could do 
-the simple copy and paste, but this is pretty time-consuming 
+understand the scanned image text. Of course, you could do 
+the simple copy and paste, but this are pretty time-consuming 
 when you need to deal with hundreds or even thousands of pdfs. 
 In addition, after reading PDFs, what you would get will be
 plenty of strings, which usually contain unstructured or 
@@ -127,9 +127,9 @@ they all have the same format like this:
 </center>
 
 
-Seemingly a burdensome task? You may feel more clear after looking at our plan:
+Seemingly a burdensome task? You may feel clearer after looking at our plan:
 
-* Download  all 312 county pdf files 
+* Download all 312 county pdf files 
 (24 counties by 13 years) for 2006-2018. 
 
 * Write a function to extract data from 
@@ -230,8 +230,8 @@ The plot below shows what we will perform generally:
 
 ## Step 1: Read and Extract 
 
-In order to read data from pdf, we will use function [pdf_data()](https://www.rdocumentation.org
-/packages/pdftools/versions/2.2/topics/pdftools). 
+In order to read data from pdf, we will use function 
+[pdf_data()](https://www.rdocumentation.org/packages/pdftools/versions/2.2/topics/pdftools). 
 This function will return one data frame per page, 
 containing one row for each textbox in the PDF.
 Use `[[1]]` to extract information from the first page.
@@ -264,14 +264,14 @@ in the same row together with `group_by()`.
 Function [arrange()](https://www.rdocumentation.org
 /packages/dplyr/versions/0.7.8/topics/arrange) 
 is helpful when we would like to arrange rows
-by sorting variables in an descending order. 
+by sorting variables in a descending order. 
 `by_group = TRUE` will sort first by grouping variable. 
 Year information is easy to get since 
-it is list as the first textbox in the dataframe 
+it is list as the first textbox in the data frame 
 and we only need to transfer it as numeric data. 
 Considering the county, have a look on the pdf snapshot, 
 the full county name is listed in the same row. 
-Therefore we decide to paste text in the same row 
+Therefore, we decide to paste text in the same row 
 together and extract it. Try on test file first!
 
 ```{r}
@@ -349,7 +349,7 @@ evdf %>% group_by(x) %>%
 </center>
 
 The end of the first column is at x = 258 and 
-the begining of the right column is at x = 266. 
+the beginning of the right column is at x = 266. 
 We would set x = 265 as the threshold to 
 designate left/right column by using function `mutate`. 
 Above step will be written as function `mod()`.
@@ -408,7 +408,11 @@ evdf_gp <- evdf_mod%>%
 evdf_gp[1:10,]
 ```
 
-Once these pieces were labelled appropriately, we can collapse across the values of the variable's name to get both the variable itself and the count for that variable. Still, function `paste()` is helpful to merge things of the same row together:
+Once these pieces were labelled appropriately, we can 
+collapse across the values of the variable's name to 
+get both the variable itself and the count for that 
+variable. Still, function `paste()` is helpful to 
+merge things of the same row together:
 
 ```{r}
 evdf_cd <- evdf_gp%>% 
@@ -419,13 +423,15 @@ evdf_cd <- evdf_gp%>%
 evdf_cd[1:10,]
 ```
 
-Finally, there are some lines that are just text and not variables/counts and they can be directly removed, like 'Reason for exposure'.
+Finally, there are some lines that include just text 
+and not variables/counts thus they can be directly 
+removed, like 'Reason for exposure'.
 
 <center>
 ![](plot/remove.png)
 </center>
 
-Similiarly, write all above as function `gp()`.
+Similiarly, write all above code as function `gp()`.
 
 ```{r update gp}
 gp <- function(p1Data){
@@ -448,7 +454,8 @@ gp <- function(p1Data){
 }
 ```
 
-Then just combine this dataframe with information for year and county as a row-like dataframe:
+Then just combine this data frame with information 
+for year and county as a row-like data frame:
 
 ```{r}
 comb <- function(data, year, county){
@@ -462,7 +469,9 @@ comb <- function(data, year, county){
 }
 ```
 
-Now to make this into a function that is given the pdf file and returns the row of data:
+Up to now, we have created multiple functions with different 
+goals. We could use them to make up a new function `fna_1` 
+that is given the pdf file and returns the row of data:
 
 ```{r, warning=FALSE}
 
@@ -480,8 +489,8 @@ fna_1 <- function(file){
 ```
 
 
-
-Great! Let's test on this file and another two additional files:
+Great! Next step is to test it on this file 
+and another two additional files:
 
 ```{r eval=FALSE}
 fna_1("Prince Georges County Statistical Report 2018.pdf")
@@ -493,7 +502,10 @@ fna_1("Talbot County Statistical Report 2018.pdf")
 ![](plot/fna1.png)
 </center>
 
-There isn't any problem for our wrangling function, which is good! And for each file, `fna_1()` returns a dataframe with size 1*45. Then we can try it on all files and merged all output into one dataframe:
+There isn't any problem for our wrangling function, 
+which is good! And for each file, `fna_1()` returns 
+a data frame with size 1*45. Then we can try it on 
+all 312 files and merged all output into one data frame:
 
 ```{r}
 d1 <- fna_1(paste0("./data/",files[1]))
@@ -506,11 +518,15 @@ for (i in 2:length(files)) {
 }
 ```
 
-The final dataset we could get contains `r nrow(D1)` rows and `r ncol(D1)` columns.
+The final data frame contains `r nrow(D1)` rows and `r ncol(D1)` columns.
 
 ## Step 5: Specify category 
 
-One thing we notice is that there are actually some sub-categories and we definitely wish to have MORE additional columns, and some of the sub-columns are now labeled with NA instead of the appropriate subcategory.
+One thing we notice is that there are actually 
+some sub-categories and we definitely wish to 
+have MORE additional columns, and some of the 
+sub-columns are now labeled with NA instead of 
+the appropriate subcategory.
 
 <center>
 ![](plot/sub-cg.png)
@@ -518,26 +534,30 @@ One thing we notice is that there are actually some sub-categories and we defini
 
 
 
-Like the plot above, "Reason for exposure" contains 3 sub-categories: Unintentional, Intentional and Other. We would like to specify records below them, to achieve this goal, we could update our group function:
+As shown from the plot above, "Reason for exposure" contains 
+3 sub-categories: Unintentional, Intentional and Other. 
+We would like to specify records below them. 
+To achieve this goal, we could update our `gp` function:
 
 The higher categories are:
-Left column:
-Total human exposures to Reason for exposure, give subcategory "Age:"
-Unintentional to Intentional, give subcategory "RFE-Unintent:"
-Intentional to Other, give subcategory "RFE-Intent:"
-Other to end, give subcategory "RFE-Other:"
 
-Right column: 
-Management Site to Medical Outcome, give subcategory "MS"
-Medical outcome to end, give subcategory "MO"
+* Left column:
+   + Total human exposures to Reason for exposure, give subcategory "Age:"
+   + Unintentional to Intentional, give subcategory "RFE-Unintent:"
+   + Intentional to Other, give subcategory "RFE-Intent:"
+   + Other to end, give subcategory "RFE-Other:"
+
+* Right column: 
+   + Management Site to Medical Outcome, give subcategory "MS:"
+   + Medical outcome to end, give subcategory "MO:"
 
 
 ```{r update gp 2}
 
 gp_update <- function(p1Data){
   # group the data by column and height on the page
-# keep the last entry of that column/height as the value
-# assign the remaining entries for that column/height the name
+  # keep the last entry of that column/height as the value
+  # assign the remaining entries for that column/height the name
   gd <- p1Data %>% 
     group_by(column,y) %>% 
     arrange(x, .by_group=TRUE) %>%
@@ -594,7 +614,8 @@ comb <- function(data, year, county){
 
 ```
 
-With the updated function, we still need to update the final function:
+Update the final function everytime 
+you make changes on these sub-functions :
 
 ```{r}
 fna_2 <- function(file){
@@ -608,7 +629,8 @@ fna_2 <- function(file){
 }
 ```
 
-Now, let's try our new function on the pdf files to see if it works well:
+Now, let's try our new function on the 
+pdf files to see if it works well:
 
 ```{r}
 d1 <- fna_2(paste0("./data/",files[1]))
@@ -621,12 +643,19 @@ for (i in 2:length(files)) {
 }
 ```
 
-Here, the size of the final dataset becomes `r nrow(D1)` rwos and `r ncol(D1)` columns, which is different from the result when we apply function fna_1. To be specific, there are MORE additional columns. To get an ideal dataset, next important step is variable cleaning.
+Here, the size of the final data frame becomes 
+`r nrow(D1)` rows and `r ncol(D1)` columns, 
+which is different from the result when 
+we apply function `fna_1`. To be specific, 
+there are MORE additional columns. To get 
+an ideal data frame, an important step we
+should perform can be variable cleaning.
 
 
 ## Step 6: Variable cleaning
 
-Before cleaning them, let's check what variables do we have now:
+Before cleaning them, let's check what 
+variables do we have now:
 
 ```{r eval=FALSE}
 colnames(D2)
@@ -637,28 +666,50 @@ colnames(D2)
 ![](plot/sub-pb.png)
 </center>
 
-There are 6 subcategories which we defined before, and it is clear that there are some problems for each subcategory. The first problem is repeated sub-category, like "Age". This is because for different couties, the same subcategory may include different vairbles, so such kind of variables don't have complete information for all counties; Moreover, unknow information exists in each subcategory but it has different forms, leading to the problem that we get unnecessarily additional columns. 
+There are 6 subcategories which we defined before, and it is 
+clear that there are some problems for each subcategory. 
+The first problem is repeated sub-category, like "Age". 
+This is because for different counties, the same subcategory
+may include different variables, so such kind of variables
+don't have complete information for all counties; Moreover, 
+unknow information exists in each subcategory but it has 
+different forms, leading to the problem that we get 
+unnecessarily additional columns. 
 
-In the followning part, I will deal the whole dataframe for each subcategory. Since the type of all variable names are string, **regular expression (regexp)** would be a powelful tool. Strings always contain unstructured or semi-structured data, and regexp is considered as a concise language for describing pattern strings. In thi case study, we would like to focus on matching patterns with regexp.
+In the following part, I will deal the whole data frame 
+for each subcategory. Since the type of all variable names 
+are string, **regular expression (regexp)** would be a powerful tool. 
+Strings always contain unstructured or semi-structured data, 
+and regexp is considered as a concise language for describing 
+pattern strings. In this case study, we would like to focus on 
+matching patterns with regexp.
 
 
 ### Regexp Introduction
 
-Function [`str_detect()`](https://www.rdocumentation.org/packages/stringr/versions/1.4.0/topics/str_detect). It is useful to determine if a character vector matches a pattern, and returns a logical vector the same length as the input. 
+Function [`str_detect()`](https://www.rdocumentation.org/packages/stringr/versions/1.4.0/topics/str_detect). It is useful to determine if a character vector 
+matches a pattern, and returns a logical vector 
+the same length as the input. 
 
 ```{r}
 x <- c("apple", "banana", "tomato", "mint", "lemon")
 str_detect(x, "e")
 ```
 
-In this example, for `x`, we would like to find if its string elements contain the word "e", so the result for the first (apple) and fifth (lemon) element is TRUE while for others is FALSE. If we want to subset these two elements, just run the following code:
+In this example, for `x`, we would like to find 
+if its string elements contain the word "e", 
+so the result for the first (apple) and the 
+fifth (lemon) element is TRUE while for others 
+is FALSE. If we want to subset these two elements, 
+just run the following code:
 
 ```{r}
 x[str_detect(x, "e")]
 ```
 
 
-To prepare you for perfomring the matching procedue, common patterns are introduced here:
+To prepare you for perfomring the matching procedue, 
+common patterns are introduced here:
 
 
 ```{r}
@@ -666,41 +717,54 @@ ex_re = c("Abc", "aabc", "a abc", "abcd", "abbbCde", "acd", "aBcD")
 ex_re
 ```
 
-`^` and `$` finds any string that starts with and ends with certain characters respectively:
+`^` and `$` finds any string that starts with 
+and ends with certain characters respectively:
 
 ```{r}
 ex_re[str_detect(ex_re,"^A")]
 ex_re[str_detect(ex_re,"e$")]
 ```
 
-Parentheses `()` create a capturing group with value "Cde", and `.` matches any character:
+Parentheses `()` create a capturing group 
+with value "Cde", and `.` matches any character:
 
 ```{r}
 ex_re[str_detect(ex_re, ".(Cde)")]
 ```
 
-If we want to find strings that have "a" followed by "a" or "B",  `()` means capturing group and `|` means OR operand so we could write:
+If we want to find strings that have "a" 
+followed by "a" or "B",  `()` means capturing 
+group and `|` means OR operand so we could write:
 
 ```{r}
 ex_re[str_detect(ex_re, "a(a|B)")]
 ```
 
-`+` means one or more, if we want to find strings that have "a" followed by one or more "b"
+`+` means one or more, if we want to find strings 
+that have "a" followed by one or more "b":
 
 ```{r}
 ex_re[str_detect(ex_re, "^ab+")]
 ```
 
 
-You can also use the combination to generate complex matches. For example, `.+` matches any character one or more times.
+You can also use the combination to generate complex matches. 
+For example, `.+` matches any character one or more times.
 
-Let's try then! The following code is to find string start with "a" and end with "d" or "D", but we don't care about the middle part:
+Let's try then! The following code is to find strings
+start with "a" and end with "d" or "D", but we don't care 
+about the middle part:
 
 ```{r}
 ex_re[str_detect(ex_re, "^a.+(d$|D$)")]
 ```
 
-Considering we have to find different patterns to match the variables that needed to be dealt with, let's define a general function to find colnames with certain pattern with function. Just like the example, first get a logical vector, and then use this vector to extract variables needed.
+Considering we have to find different patterns 
+to match the variables that needed to be dealt with, 
+let's define a general function to find columns' names
+with certain pattern by using function. Just like the 
+example, first get a logical vector, and then use this 
+vector to extract variables needed.
 
 ```{r}
 str.dt <- function(pattern){
@@ -719,21 +783,24 @@ Let's check all variables of Age sub-category:
 str.dt("Age:")
 ```
 
-One variable called "Age:<60 years" is pretty wried since it covers lots of other variables. Therefore let's look which observation contain this information:
+One variable called "Age:<60 years" is pretty wired 
+since it covers lots of other variables. Therefore 
+let's look which observation contain this information:
 
 ```{r}
 idx <- is.na(D2[str.dt("Age:<60")])
 D2[idx==FALSE,c("Age:>60 years","County","Year")]
 ```
 
-Only Caroline county includes this information and it has no value for "Age:>60 years" which is a common variable for all counties. Thus, we believe "<60" is a typo and it should be ">60" instead.
+Only Caroline county includes this information 
+and it has no value for "Age:>60 years" which is 
+a common variable for all counties. Thus, we believe 
+"<60" is a typo and it should be ">60" instead.
 
 
-Then, we find there are Unknow adult, Unknown Adult, Adult, 20-, >60, <60 (typo), it is easy to extact them and check the corresponding summary with the following code:
-
-** First fix the typo into >60 
-and then create an overall new variable
-and then keep 20-59, >60
+Then, we find there are Unknow adult, Unknown Adult, 
+Adult, 20-, >60, <60 (typo), it is easy to extact them
+and check the corresponding summary with the following code:
 
 
 ```{r}
@@ -742,14 +809,22 @@ summary(D2[temp_age])
 ```
 
 
-All of them have a large proportion of NA's. This is because when MPC collected information, it may use different variables to represent the same kind of information. Just like Caroline county, it has information in "<60" but only has NA in ">60". So we decide to sum all their values as a new vairble "Age:>20 years":
+All of them have a large proportion of NA's. 
+This is because when MPC collected information, 
+it may use different variables to represent the 
+same kind of information. Just like Caroline county, 
+it has information in "<60" but only has NA in ">60". 
+So we decide to sum all their values as a new vairble 
+"Age:>20 years":
 
 ```{r}
 D2$`Age:>20 years`= rowSums(D2[temp_age],na.rm = TRUE, dims=1)
 summary(D2$`Age:>20 years`)
 ```
 
-`na.rm = TRUE` calculates the sum of the non-NA values in these variables and `dim = 1` tells R to sum over column rather than row.
+`na.rm = TRUE` calculates the sum of the non-NA values 
+in these variables and `dim = 1` tells R to sum over 
+column rather than row.
 
 The new variable has no NA's. Done for the Age part!
 
@@ -762,16 +837,28 @@ str.dt("ReasonUn:")
 tempun <- D2[c(str.dt("ReasonUn:"),"County","Year")]
 ```
 
-Do you notice there are actually repeated information for two variables, "Bite or sting" and "Bite and Sting", "Food Poisoning" and "Food poisoning". The only difference is the upper-case and lower-case but they represent the same thing so use new variables to store their values:
+Do you notice there are actually repeated information 
+for two variables, "Bite or sting" and 
+"Bite and Sting", "Food Poisoning" and "Food poisoning". 
+The only difference is the upper-case and lower-case
+but they represent the same thing so use new variables 
+to store their values:
 
 ```{r}
 str.dt(".(Poi|poi)")
-D2$`ReasonUn:Botulism`= rowSums(D2[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
+
+D2$`ReasonUn:Botulism`= 
+  rowSums(D2[str.dt(".(Poi|poi)")],na.rm = TRUE, dims=1)
 str.dt(".(or Sti|or sti)")
-D2$`ReasonUn:Bite/Sting`= rowSums(D2[str.dt(".(or Sti|or sti)")],na.rm = TRUE, dims=1)
+
+D2$`ReasonUn:Bite/Sting`= 
+  rowSums(D2[str.dt(".(or Sti|or sti)")],na.rm = TRUE, dims=1)
 ```
 
-One thing you should be very careful is how to create the new variable. Since all of the variables we dealt with will be dropped, so do pay attention the new variable has different pattern from these old variables.  
+One thing you should be very careful is how to 
+create the new variable. Since all of the variables 
+we dealt with will be dropped, do pay attention the 
+new variable has a different pattern from these old variables.  
 
 
 ### RFE-Other
@@ -782,20 +869,28 @@ Look at variables for RFE-Other sub-category:
 str.dt("ReasonOther:")
 ```
 
-One major problem is repeated information for unknow information but we would deal with it in later steps together with all sub-categories.
+One major problem is repeated information for 
+unknow information but we would deal with it 
+in later steps together with all sub-categories.
 
 
-Another problem is still the upper-case and lower-case difference, so we could dealt with it similiarly. Also
-putting space after "/" in new variable as "/ " is intend to avoid deleting the new one in later step:
+Another problem is still the upper-case and 
+lower-case difference, so we could deal with 
+it similarly. Also putting space after "/" in 
+new variable as "/ " is intend to avoid deleting 
+the new one in later step:
 
 ```{r}
 str.dt(".(/Tamp|/tamp).")
-D2$`ReasonOther:Contamination/ Tampering`= rowSums(D2[str.dt(".(/Tamp|/tamp).")],na.rm = TRUE, dims=1)
+D2$`ReasonOther:Contamination/ Tampering`= 
+  rowSums(D2[str.dt(".(/Tamp|/tamp).")],na.rm = TRUE, dims=1)
 ```
 
 ### RFE-Intent, MS and MO 
 
-For RFE-Intent, MS and MO sub-category, there are no additional problems except unknow information.
+For RFE-Intent, MS and MO sub-category, 
+there are no additional problems except
+unknow information.
 
 ```{r}
 str.dt("ReasonInt:")
@@ -805,30 +900,42 @@ str.dt("MO:")
 
 ### Unknown Information
 
-As we mentioned over and over, one common probelm for each subcategory is multiple similiar variables to represent unknown information, we would like to sum all values in "Unknown" or "Other", and create a new 
-" Unknown All" column to store the sum value, here we leave a space for the same reason: avoid to create same pattern
+As we mentioned over and over, one common probelm 
+for each subcategory is multiple similiar variables 
+to represent unknown information, we would like to 
+sum all values in "Unknown" or "Other", and create a new 
+" Unknown All" column to store the sum value, here we 
+leave a space for the same reason: avoid to create same pattern
 
 ```{r}
-D2$`Age: Unknown All`= rowSums(D2[str.dt("^Age.+(ge|wn|ld)$")],na.rm = TRUE, dims=1)
-D2$`ReasonUn: Unknown All`= rowSums(D2[str.dt("ReasonUn:(Unk|Oth)")],na.rm = TRUE, dims=1)
-D2$`ReasonOther: Unknown All`= rowSums(D2[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
-D2$`MS: Unknown All`= rowSums(D2[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
+D2$`Age: Unknown All`= 
+  rowSums(D2[str.dt("^Age.+(ge|wn|ld)$")],na.rm = TRUE, dims=1)
+D2$`ReasonUn: Unknown All`= 
+  rowSums(D2[str.dt("ReasonUn:(Unk|Oth)")],na.rm = TRUE, dims=1)
+D2$`ReasonOther: Unknown All`= 
+  rowSums(D2[str.dt("ReasonOther:(Unk|Oth)")],na.rm = TRUE, dims=1)
+D2$`MS: Unknown All`= 
+  rowSums(D2[str.dt("MS:(Unk|Oth)")],na.rm = TRUE, dims=1)
 
 
-c(str.dt("^Age.+(ge|wn|ld)$"),str.dt("ReasonUn:(Unk|Oth)"),str.dt("ReasonOther:(Unk|Oth)"),
+c(str.dt("^Age.+(ge|wn|ld)$"),
+  str.dt("ReasonUn:(Unk|Oth)"),
+  str.dt("ReasonOther:(Unk|Oth)"),
   str.dt("MS:(Unk|Oth)"))
 
 ```
 
 ### Additional steps
 
-There are actually 2 wired variables 'Medical','ReasonUn:Outcome', which only has one value;
+There are actually 2 wired variables 'Medical',
+'ReasonUn:Outcome', which only has one value:
 
 ```{r}
 summary(D2[c('Medical','ReasonUn:Outcome')])
 ```
 
-for "Calvert County, MD, 2017". This is caused by wired format of original pdf, just delete it
+for "Calvert County, MD, 2017". This is caused by 
+wired format of original pdf, just delete it
 
 
 <center>
@@ -850,7 +957,9 @@ table(idx)["FALSE"]
 ```
 
 
-In all, we make change on 32 variables and now let's drop all old variables and save into a new dataframe
+In all, we make change on 32 variables and 
+now let's drop all old variables and save 
+into a new data frame
 
 ```{r}
 drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
@@ -874,14 +983,18 @@ write_csv(Df, "ocs_MPC_data.csv")
 
 # Animated map creation
 
-In this section, we would like to take the Maryland Poison Control data that we cleaned, and create a map showing the rates of exposures by county. Additionally, we also want to animate this map to show how these rates change over time. 
+In this section, we would like to take the Maryland Poison Control 
+data that we cleaned, and create a map showing the rates of exposures 
+by county. Additionally, we also want to animate this map to show 
+how these rates change over time. 
 
 ## Single map - year 2018
 
 
 ### Data cleaning
 
-To make each step more clear, we use data in year 2018 as an example.
+To make each step more clear, 
+we use data in year 2018 as an example.
 
 ```{r}
 map_df <- read_csv("ocs_MPC_data.csv")
@@ -896,15 +1009,39 @@ popData <- read_csv("pop.csv")
 ```
 
 
-Package `ggplot` loads the package `maps` to run function `map_data()`. We mainly use `county` and `state` variable, which provide information of the counties and states of the United States mainland generated from US Department of the Census data respectively. Below is the instructions on how to understand the output:
+Package `ggplot` loads the package `maps` to run function 
+`map_data()`. We mainly use `county` and `state` variables, 
+which provide information of the counties and states of 
+the United States mainland generated from US Department of 
+the Census data respectively. Below is the instructions 
+on how to understand the output:
 
-* `long` is longitude. Things to the west of the prime meridian are negative. And `lat` is latitude.
+* `long` is longitude. Things to the west of the prime 
+meridian are negative. And `lat` is latitude.
 * `order` shows in which order ggplot should connect the dots.
-* `region` and `subregion` tell what region or subregion a set of points surrounds.
-* `group` is very important! ggplot2's functions can take a group argument which controls (amongst other things) whether adjacent points should be connected by lines. If they are in the same group, then they get connected, but if they are in different groups then they don't. In our case, each county has its own group number.
+* `region` and `subregion` tell what region or subregion
+a set of points surrounds.
+* `group` is very important! ggplot2's functions can take 
+a group argument which controls (amongst other things) 
+whether adjacent points should be connected by lines. 
+If they are in the same group, then they get connected, 
+but if they are in different groups then they don't. 
+In our case, each county has its own group number.
 
 
-Since we would like to merge the dataset based on the `subregion`, it is necessary to change them to be the same format as that in the `md` and `state.md` dataset. First use `tolower` to change all words into lowerer case and then replace some patterns to `""`. Keep in mind that when you define multiple patterns, use regex operator rather vector. When fed with a single pattern, `str_replace_all` will compare that pattern for against every element. However, if you pass it a vector, it will try to respect the order, so compare the first pattern with the first object, then the second pattern with the second object, which is not what we want.
+Since we would like to merge the data based on 
+the `subregion`, it is necessary to change them 
+to be the same format as that in the `md` and 
+`state.md` dataset. First use `tolower` to change 
+all words into lowered case and then replace some 
+patterns to `""`. Keep in mind that when you define 
+multiple patterns, use regex operator rather vector. 
+When fed with a single pattern, `str_replace_all` 
+will compare that pattern for against every element. 
+However, if you pass it a vector, it will try to 
+respect the order, so compare the first pattern with 
+the first object, then the second pattern with the 
+second object, which is not what we want.
 
 
 ```{r}
@@ -924,14 +1061,16 @@ mpc2018$subregion <- str.rp(mpc2018$subregion, p1)
 mpc2018$subregion
 ```
 
-Great! Variable subregion has been reformatted successfully and now let's merge datasets.
+Great! Variable `subregion` has been reformatted 
+successfully and now let's merge datasets.
 
 ```{r}
 # join mpc to map data
 plotData <- inner_join(md, mpc2018, by="subregion")
 ```
 
-Now we need to find some population data by county and remove the `, md` and the apostrophes:
+Now we need to find some population data 
+by county and remove the `, md` and the apostrophes:
 
 ```{r}
 pop2018 <- popData %>%
@@ -946,7 +1085,10 @@ pop2018$subregion = str.rp(pop2018$subregion, p2)
 
 ### Plotting exposure rates by county
 
-Now we can join all three data sets (MPC, map, and population) together and create an exposure rate variable with exposures per 10,000 people:
+Now we can join all three data sets 
+(MPC, map, and population) together 
+and create an exposure rate variable 
+`THEperCap` with exposures per 10,000 people:
 
 ```{r}
 plot18 <- inner_join(plotData, pop2018, by="subregion")
@@ -959,7 +1101,11 @@ plot18 <- plot18 %>%
 ```
 
 
-map in this format can be plotted by function `geom_polygon()`, it draws lines together between points in the same group based on the longtitude and latitude value. `fill`. `coord_fixed()` fixes the relationship between one unit in the y direction and one unit in the x direction, we find 1.3 is the best choice.
+map in this format can be plotted by function `geom_polygon()`, 
+it draws lines together between points in the same group based 
+on the longtitude and latitude value. `fill`. `coord_fixed()` 
+fixes the relationship between one unit in the y direction and 
+one unit in the x direction, we find 1.3 is the best choice.
 
 
 ```{r}
@@ -973,12 +1119,20 @@ ggplot() +
 
 ```
 
-PG and M counties do have accurate counts, just very low. If you take a look at the original pdf files for this two counties, it mentions that "This report reflects only the calls to the Maryland Poison Center from Montgomery/ Prince Georges County. For complete statistics, statistics from the National Capitol Poison Center should also be consulted." Thus we decide to exclude these two counties by assigning NA to their rate. 
+PG and M counties do have accurate counts, just very low. 
+If you take a look at the original pdf files for this two 
+counties, they mention that "This report reflects only 
+the calls to the Maryland Poison Center from 
+Montgomery/ Prince Georges County. For complete statistics, 
+statistics from the National Capitol Poison Center should 
+also be consulted." Thus, we decide to exclude these two 
+counties by assigning NA to their rate. 
 
 ```{r}
 plot18 <- plot18 %>%
   mutate(THEperCap = ifelse(subregion=="prince georges" | 
-        subregion=="montgomery", NA, `Total human exposures`/`2018`*10000))
+        subregion=="montgomery", NA, 
+        `Total human exposures`/`2018`*10000))
 
 
 ggplot() + 
@@ -991,13 +1145,23 @@ ggplot() +
 
 ```
 
-We can see that Kent and Talbot county (in dark purple at the right part of the map) have much higher numbers of exposures than the other counties in Maryland. Also, after removing the artificially low rates for these two counties, we are also able to see more differentiation between the other counties since the exposure scale has been re-scaled to a new lowest value.
+We can see that Kent and Talbot county (in dark purple at
+the right part of the map) have much higher numbers of 
+exposures than the other counties in Maryland. Also, 
+after removing the artificially low rates for these 
+two counties, we are also able to see more differentiation 
+between the other counties since the exposure scale has 
+been re-scaled to a new lowest value.
 
 ## Animation
 
 ### Base exposure rate map
 
-When we create animation, the concept is pretty simple as the motion of an animated plot is driven by a grouped variable in the dataset. Each group will be used to create a single plot, and finally these plots are stitched together as multiple layers to create the animation. 
+The concept behind create animation is pretty simple 
+as the motion of an animated plot is driven by a grouped 
+variable in the dataset. Each group will be used to create 
+a single plot, and finally these plots are stitched together 
+as multiple layers to create the animation. 
 
 <center>
 ![](plot/animate.png)
@@ -1005,12 +1169,13 @@ When we create animation, the concept is pretty simple as the motion of an anima
 [https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3]
 </center>
 
-First we select data from 2010 to 2018 and merge necessary information as used in previous example:
+First we select data from 2010 to 2018 and merge 
+necessary information as used in previous example:
 
 ```{r}
 mpc <- map_df %>%
   filter(Year >= 2010) %>%
-  mutate(subregion=tolower(County))
+  mutate(subregion = tolower(County))
 
 mpc$subregion <- str.rp(mpc$subregion, p1)
 
@@ -1018,23 +1183,34 @@ mpc$subregion <- str.rp(mpc$subregion, p1)
 colnames(popData) <- str.rp(colnames(popData), "respop7")
 
 popdata <- popData %>%
-  select(`2010`:`2018`, subregion=`GEO.display-label`) %>%
-  mutate(subregion=str.rp(tolower(subregion),p2)) %>%
+  select(`2010`:`2018`, subregion = `GEO.display-label`) %>%
+  mutate(subregion = str.rp(tolower(subregion),p2)) %>%
   gather(Year, Population, `2010`:`2018`)%>%
-  mutate(Year=as.numeric(Year))
+  mutate(Year = as.numeric(Year))
   
+
 ```
 
-To make the later merging step easier, we reformat the dataset `popData` such that the time variable (`Year`) is gathered together as a single variable rather than spreading across the columns. Function `gather( key=, value=)` takes columns `2010`:`2018` as we specified, and collapses into key-value pairs (`Population`), duplicating all other columns as needed. 
+To make the later merging step easier, we reformat 
+the dataset `popData` such that the time variable 
+(`Year`) is gathered together as a single variable 
+rather than spreading across the columns. Function 
+`gather( key=, value=)` takes columns `2010`:`2018` 
+as we specified, and collapses into key-value pairs 
+(`Population`), duplicating all other columns as needed. 
 
 ```{r}
 # join mpc to map data
-join_data <- inner_join(md, mpc, by="subregion")
+join_data <- inner_join(md, mpc, 
+                        by="subregion")
 # join population data to mpc and map data
-join_data <- inner_join(join_data, popdata, by=c("subregion", "Year"))
+join_data <- inner_join(join_data, 
+                        popdata, by=c("subregion", "Year"))
 
 join_data <-  join_data%>%
-  mutate(Rate= ifelse(subregion=="prince georges" | subregion=="montgomery", NA,`Total human exposures`/`Population`*10000))
+  mutate(Rate= ifelse(subregion=="prince georges" | 
+                        subregion=="montgomery", NA,
+                      `Total human exposures`/`Population`*10000))
 
 ```
 
@@ -1048,16 +1224,18 @@ join_data <- join_data %>%
 
 # initial map information
 baseMap <- ggplot() + 
-  geom_polygon(data = join_data, aes(x=long, y = lat, 
-              fill=Rate, group = group), color="white") + 
-  geom_polygon(data = state.md, aes(x=long, y=lat, 
-              group=group), color="black", fill=NA) + coord_fixed(1.3) +
-  scale_fill_gradient(low = "white", high = "purple", na.value="grey80") +
-  theme_void() + theme(legend.position=c(.92,.7), legend.text.align=0, 
-        plot.title=element_text(hjust=.1, face="bold"), 
-        plot.caption=element_text(hjust=0)) +
-  labs(title="Total human exposures per 10,000 individuals", 
-       fill="Rate per 10k", caption="Data sources: 
+  geom_polygon(data = join_data, aes(x = long, y = lat, 
+              fill = Rate, group = group), color = "white") + 
+  geom_polygon(data = state.md, aes(x = long, y = lat, 
+              group = group), color = "black", fill = NA) + 
+  coord_fixed(1.3) + scale_fill_gradient(low = "white", 
+               high = "purple", na.value = "grey80") +
+  theme_void() + theme(legend.position = c(.92,.7), 
+              legend.text.align = 0, plot.title = 
+                element_text(hjust = .1, face = "bold"), 
+        plot.caption = element_text(hjust = 0)) +
+  labs(title = "Total human exposures per 10,000 individuals", 
+       fill = "Rate per 10k", caption = "Data sources: 
        (1) Maryland Poison Center 
        (2) U.S. Census Bureau, Population Division \n 
        Data for Prince George's and Montgomery Counties 
@@ -1070,9 +1248,19 @@ baseMap
 
 ### Animate exposure rate map over time 
 
-The last step was to animate the graph using the `gganimate` package, which enables you to build motion more much more easily. Again, [an online tutorial](https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3) inspires us a lot.
+The last step is to animate the graph using 
+the `gganimate` package, which enables you to 
+build motion more much more easily.  
+[An online tutorial](https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3) inspires us a lot and you are encouraged
+to explore more if you are interested in it.
 
-Here, `transition_states()` function splits your data into multiple states based on the levels in a given column, corresoinding to multiple layers mentioned above. The relative length of the transition (`transition_length`) and the pause at the states (`state_length`) are defined as 3 and 20 repectively. In addition, function `animate()` takes a gganim object and renders it into an animation.
+Here, `transition_states()` function plays a crucial role as
+it splits your data into multiple states based on the levels 
+in a given column, corresponding to multiple layers mentioned 
+above. The relative length of the transition (`transition_length`)
+and the pause at the states (`state_length`) are defined as 3 
+and 20 respectively. In addition, function `animate()` takes 
+a gganimate object and renders it into an animation.
 
 
 ```{r}
