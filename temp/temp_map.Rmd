@@ -125,10 +125,10 @@ map in this format can be plotted by function `geom_polygon()`, it draws lines t
 
 ```{r}
 ggplot() + 
-  geom_polygon(data = plot18, aes(x=long, y = lat, fill=THEperCap, group = group), color="white") + 
-  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), color="black", fill=NA) +
-  coord_fixed(1.3) + 
-  theme_bw()
+  geom_polygon(data = plot18, aes(x=long, y = lat, 
+               fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
+               color="black", fill=NA) + coord_fixed(1.3) + theme_bw()
 
 ```
 
@@ -262,5 +262,4 @@ Write the gif image to a file using `anim_save()`:
 ```{r}
 anim_save("MPCmap.gif", animation=mapGIF)
 ```
-
 
