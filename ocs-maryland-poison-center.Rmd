@@ -22,7 +22,7 @@ which gives exposure counts for calls to the
 [Maryland Poison Center](https://www.mdpoison.com/). 
 Finally, we would like to create a tidy and clean dataset of calls
 to the Maryland Poison Center (MPC) based on reports 
-from 2006 to 2008 of all counties (totally 312 files). 
+from 2006 to 2018 of all counties (totally 312 files). 
 Then we could visualize some information by animation along time horizons.
 
 <center>
@@ -71,8 +71,9 @@ extract data from pdf documents provided by
 Maryland Poison Center, using the R package `pdftools`, 
 and transform the original messy form into 
 a tidy csv with package `stringr`. The final 
-step is to visualize feature `Total human exposure`
-with package `gganimate`.
+step is to visualize the rate of `Total human exposure`
+with package `gganimate` and cover various ways to
+finally get an awesome animated visualization.
 
 The libraries used in this study are listed 
 in the following table, along with their purpose 
@@ -100,13 +101,14 @@ library(readr)
 library(maps)
 library(ggplot2)
 library(gganimate)
+library(ggrepel)
 ```
 
 The learning objectives for this case study include:
 
-  * extract data from pdf files
-  * string manipulation
-  * animated map creation
+  * Extract data from pdf files
+  * String manipulation
+  * Animated map creation
 
 # What is the data? 
 
@@ -130,12 +132,12 @@ they all have the same format like this:
 Seemingly a burdensome task? You may feel clearer after looking at our plan:
 
 * Download all 312 county pdf files 
-(24 counties by 13 years) for 2006-2018. 
+(24 counties by 13 years) from 2006 ro 2018. 
 
 * Write a function to extract data from 
 any pdf document with this structure 
 (all MPC county reports have this same structure 
-from 2006-2018). A sample document (Allegany County 2018) 
+from 2006 to 2018). A sample document (Allegany County 2018) 
 will be used as example to display the extraction process.
 
 * Test this function on two additional counties 
@@ -900,12 +902,12 @@ str.dt("MO:")
 
 ### Unknown Information
 
-As we mentioned over and over, one common probelm 
+As we mentioned over and over, one common problem 
 for each subcategory is multiple similiar variables 
 to represent unknown information, we would like to 
 sum all values in "Unknown" or "Other", and create a new 
 " Unknown All" column to store the sum value, here we 
-leave a space for the same reason: avoid to create same pattern
+leave a space for the same reason: avoid to create same pattern.
 
 ```{r}
 D2$`Age: Unknown All`= 
@@ -928,20 +930,19 @@ c(str.dt("^Age.+(ge|wn|ld)$"),
 ### Additional steps
 
 There are actually 2 wired variables 'Medical',
-'ReasonUn:Outcome', which only has one value:
+'ReasonUn:Outcome' as they only have one value:
 
 ```{r}
 summary(D2[c('Medical','ReasonUn:Outcome')])
 ```
 
 for "Calvert County, MD, 2017". This is caused by 
-wired format of original pdf, just delete it
+wired format of original pdf (shown below), just delete it
 
 
 <center>
 ![](plot/calvert.png)
 </center>
-
 
 
  
@@ -951,6 +952,7 @@ idx <- is.na(D2[c('Medical','ReasonUn:Outcome')])
 D2[idx==FALSE,c("County","Year")]
 ```
 
+
 ```{r}
 table(idx)["FALSE"]
 #idx
@@ -959,7 +961,7 @@ table(idx)["FALSE"]
 
 In all, we make change on 32 variables and 
 now let's drop all old variables and save 
-into a new data frame
+into a new data frame.
 
 ```{r}
 drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
@@ -970,8 +972,6 @@ drops <- c(str.dt(".(Adu|adu)"), str.dt("Age:(Ad|20-|>60|<60)"),
 
 Df <- D2[ , !(names(D2) %in% drops)]
 
-
-#sort(names(Df))
 ```
 
 
@@ -1022,11 +1022,10 @@ meridian are negative. And `lat` is latitude.
 * `region` and `subregion` tell what region or subregion
 a set of points surrounds.
 * `group` is very important! ggplot2's functions can take 
-a group argument which controls (amongst other things) 
-whether adjacent points should be connected by lines. 
-If they are in the same group, then they get connected, 
-but if they are in different groups then they don't. 
-In our case, each county has its own group number.
+a group argument which controls whether adjacent points 
+should be connected by lines. If they are in the same group, 
+then they get connected, but if they are in different groups 
+then they don't. In our case, each county has its own group number.
 
 
 Since we would like to merge the data based on 
@@ -1036,6 +1035,7 @@ to be the same format as that in the `md` and
 all words into lowered case and then replace some 
 patterns to `""`. Keep in mind that when you define 
 multiple patterns, use regex operator rather vector. 
+
 When fed with a single pattern, `str_replace_all` 
 will compare that pattern for against every element. 
 However, if you pass it a vector, it will try to 
@@ -1107,6 +1107,46 @@ on the longtitude and latitude value. `fill`. `coord_fixed()`
 fixes the relationship between one unit in the y direction and 
 one unit in the x direction, we find 1.3 is the best choice.
 
+What if we would like to add the county name on the plot? 
+It is necessary to create the second layer (the first layer is 
+for ploygon) so specifying the data source and mapping them correctly 
+can be important. In this case, we assign the center of each county as 
+the label. The midpoint is better approximated the mean of the range of
+longitude and latitude. A map coordinate system , `coord_map`, that respects 
+the aspect ratio and projection will also be used.
+
+You may be familiar with adding text on the ggplot by using 
+`geom_text`, `geom_label`, `geom_text_repel` or `geom_label_repel`. 
+ggrepel provides the last two options to ensure text labels repel away
+from each other, away from the data points, and away from the edges of the 
+plotting area. Their difference is shown here:
+
+
+```{r, fig.width=12, fig.height=6}
+cnames <-  aggregate(cbind(long, lat) ~ subregion, data=plot18, FUN=mean)
+
+P <- ggplot() + 
+  geom_polygon(data = plot18, aes(x=long, y = lat, 
+              fill=THEperCap, group = group), color="white") + 
+  geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
+              color="black", fill=NA) + coord_fixed(1.3) + 
+  theme_bw() + scale_fill_gradient(low = "white", 
+                                   high = "purple", na.value="grey80")
+
+P1 <- P + geom_label_repel(data=cnames, 
+                           aes(long, lat, label = subregion), size=2.1)+
+  coord_map() + labs(title = "geom_label_repel")
+
+P2 <- P + geom_label(data=cnames, 
+                           aes(long, lat, label = subregion), size=2.1)+
+  coord_map() + labs(title = "geom_label")
+
+gridExtra::grid.arrange(P1,P2,ncol=2)
+
+```
+
+`geom_label_option` present a better performance thus we
+would use it in later examples!
 
 ```{r}
 ggplot() + 
@@ -1115,8 +1155,9 @@ ggplot() +
   geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
               color="black", fill=NA) + coord_fixed(1.3) + 
   theme_bw() + scale_fill_gradient(low = "white", 
-                                   high = "purple", na.value="grey80")
-
+                                   high = "purple", na.value="grey80")+ 
+  geom_label_repel(data=cnames, aes(long, lat, label = subregion), size=2.1)+
+  coord_map() + labs(title = "Total human exposures per 10,000 individuals")
 ```
 
 PG and M counties do have accurate counts, just very low. 
@@ -1134,22 +1175,23 @@ plot18 <- plot18 %>%
         subregion=="montgomery", NA, 
         `Total human exposures`/`2018`*10000))
 
-
 ggplot() + 
   geom_polygon(data = plot18, aes(x=long, y = lat, 
               fill=THEperCap, group = group), color="white") + 
   geom_polygon(data = state.md, aes(x=long, y=lat, group=group), 
               color="black", fill=NA) + coord_fixed(1.3) + 
   theme_bw() + scale_fill_gradient(low = "white", 
-                                   high = "purple", na.value="grey80")
+                                   high = "purple", na.value="grey80") +
+  geom_label_repel(data=cnames, aes(long, lat, label = subregion), size=2.1) +
+  coord_map() + labs(title = "Total human exposures per 10,000 individuals")
 
 ```
 
 We can see that Kent and Talbot county (in dark purple at
 the right part of the map) have much higher numbers of 
 exposures than the other counties in Maryland. Also, 
-after removing the artificially low rates for these 
-two counties, we are also able to see more differentiation 
+after removing the artificially low rates in PG and M,
+we are also able to see more differentiation 
 between the other counties since the exposure scale has 
 been re-scaled to a new lowest value.
 
@@ -1173,6 +1215,7 @@ First we select data from 2010 to 2018 and merge
 necessary information as used in previous example:
 
 ```{r}
+
 mpc <- map_df %>%
   filter(Year >= 2010) %>%
   mutate(subregion = tolower(County))
@@ -1222,6 +1265,8 @@ Now we get dataset that will be used to create the animation!
 join_data <- join_data %>%
   mutate(xloc=-78.5, yloc=38.75)
 
+join_cnames <-  aggregate(cbind(long, lat) ~ subregion, data=join_data, FUN=mean)
+
 # initial map information
 baseMap <- ggplot() + 
   geom_polygon(data = join_data, aes(x = long, y = lat, 
@@ -1230,12 +1275,13 @@ baseMap <- ggplot() +
               group = group), color = "black", fill = NA) + 
   coord_fixed(1.3) + scale_fill_gradient(low = "white", 
                high = "purple", na.value = "grey80") +
-  theme_void() + theme(legend.position = c(.92,.7), 
-              legend.text.align = 0, plot.title = 
-                element_text(hjust = .1, face = "bold"), 
-        plot.caption = element_text(hjust = 0)) +
+  theme_void() + 
+  theme(legend.position = c(1.05,.7), 
+        legend.text.align = 0, plot.title = element_text(hjust = .1, face = "bold"), 
+        plot.caption = element_text(hjust = 0)) + 
+  geom_label_repel(data=join_cnames, aes(long, lat, label = subregion), size=2.1, seed = 123) +
   labs(title = "Total human exposures per 10,000 individuals", 
-       fill = "Rate per 10k", caption = "Data sources: 
+       fill = "Rate/10k", caption = "Data sources: 
        (1) Maryland Poison Center 
        (2) U.S. Census Bureau, Population Division \n 
        Data for Prince George's and Montgomery Counties 
@@ -1245,6 +1291,12 @@ baseMap <- ggplot() +
 
 baseMap
 ```
+
+Before we animate this plot, there is one key point is that 
+when you add labels (counties name), you should avoid them overlapping
+and avoid them moving around animation. [This blog](https://stackoverflow.com/questions/55723567/how-to-stop-ggrepel-labels-moving-between-gganimate-frames-in-r-ggplot2)  provides some good suggestions to solve this question.
+In our case, the problem is to set a fixed seed which would be used
+by the `ggrepel` to determine the repel direction/amount.
 
 ### Animate exposure rate map over time 
 
@@ -1263,12 +1315,11 @@ and 20 respectively. In addition, function `animate()` takes
 a gganimate object and renders it into an animation.
 
 
-```{r}
+```{r, fig.width=8}
 # animate and add year label to animation
 animatedMap <- baseMap +
-  geom_text(data=join_data, aes(y=yloc, x=xloc, label=as.character(Year)), 
-            check_overlap = TRUE, size=10, fontface="bold") +
-  transition_states(Year, 3, 20)
+  geom_text(data=join_data, aes(y=yloc, x=xloc, label = as.character(Year)), 
+            check_overlap = TRUE, size=10, fontface="bold") + transition_time(Year) 
 
 # save as gif
 mapGIF <- animate(animatedMap) 
@@ -1277,12 +1328,77 @@ mapGIF <- animate(animatedMap)
 mapGIF
 ```
 
+The most telling feature of the gif is the trend 
+that the exposure rate is decreasing generally as
+the color becomes lighter in this period. 
+The rate for county Somerest almost goes to 0 in 
+year 2015.
+
+But we see a slight recovery energing from
+2015 to 2018 as shown by county Talbot, which is
+one of the darkest part in 2010.
+
 Write the gif image to a file using `anim_save()`:
 
 ```{r}
 anim_save("MPCmap.gif", animation=mapGIF)
 ```
 
+
 # Summary of results
+
+In this case study, we aim to visualize the exposure rate of 
+number of calls per 10,000 people by using package `gganimate`.
+Finally an animated plot is created to show the change over
+2010 to 2018 more clearly. This case study can be devided into
+three main parts: extract data from pdf files, string manipulation
+and animated map creation.
+
+The first step is to extract all data we need from plenty
+pdf files provided by Maryland Poison Center. We spend a lot of 
+time combining and reprodecing fucntions in R to build a function
+which fits our dataset perfectly. `tidyverse` plays an essential 
+role like slicing, spliting and collapsing etc.
+
+With the raw dataset, the next step is data cleaning, to be more 
+specific is string manipulation as the variable names were messed 
+up. With a powerful tool - **regexp** - we manipulate these strings
+and fix problems including repeated sub-category, unknown information 
+and typo. Remember that everytime create a new variable name, keep the 
+format different from the old one otherwise in the final deleting part
+you would drop all variables you dealt with.
+
+The last step is to visualize the exposure rate with animated plot.
+The initial map of Mayland was generate by `geom_polygon` and we
+update it by rescaling, excluding unknown information, adding fixed
+labels and animating over 2010 to 2018. We concluded that the rate is 
+decreasing gradually on the whole, and a very noticeable trend was 
+the steady decrease in county Somerest. Then a gradual rise happend 
+from 2015, reflected by the trend in county Talbot.
+
+Now you learn a lot about the detailed step to visualize feature 
+you are insterested in and we encourage you to incorporate these
+methods into your presentations and blogs! 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
